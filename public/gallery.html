@@ -8,6 +8,9 @@
 </head>
 <body>
 
+<button onclick="location.href='/'">⬅ Back to All Galleries</button>
+<button id="deleteBtn">Delete My Gallery</button>
+
 <h1 id="title"></h1>
 
 <div class="upload">
@@ -21,23 +24,33 @@
   <img id="lb-img">
 </div>
 
-<script src="/lightbox.js"></script>
 <script>
+const API_URL = "https://smallphot0-api.onrender.com";
 let username = location.pathname.split("/")[2];
+
+document.getElementById("deleteBtn").onclick = async () => {
+  if (!confirm("Delete your gallery?")) return;
+  try {
+    const res = await fetch(`${API_URL}/api/delete/${username}`, { method: "DELETE" });
+    const data = await res.json();
+    if (data.success) location.href = '/';
+    else alert(data.error || "Failed to delete");
+  } catch (err) { console.error(err); alert("Server error"); }
+};
 
 function upload() {
   const files = document.getElementById("files").files;
   if (!files.length) return;
-
   const fd = new FormData();
   for (let f of files) fd.append("files", f);
 
-  fetch(`/api/upload/${username}`, {
-    method: "POST",
-    body: fd
-  }).then(() => location.reload());
+  fetch(`${API_URL}/api/upload/${username}`, { method: "POST", body: fd })
+    .then(res => res.json())
+    .then(data => data.success ? location.reload() : alert(data.error || "Upload failed"))
+    .catch(err => { console.error(err); alert("Server error"); });
 }
 
+/* LOAD GALLERY ITEMS */
 fetch("gallery.json")
   .then(r => r.json())
   .then(g => {
@@ -45,22 +58,18 @@ fetch("gallery.json")
     document.body.style.color = g.text_color;
     document.getElementById("title").textContent = g.title;
 
-    g.items
-      .sort((a,b)=>a.batch-b.batch||a.seq-b.seq)
+    g.items.sort((a,b)=>a.batch-b.batch||a.seq-b.seq)
       .forEach(i => {
         const el = document.createElement(i.type==="video"?"video":"img");
         el.src = "media/" + i.stored;
-
-        if (i.type === "video") {
-          el.controls = true;
-          el.playsInline = true;
-        }
-
+        if (i.type==="video"){ el.controls=true; el.playsInline=true; }
         el.onclick = () => openLB(el.src);
         document.getElementById("gallery").appendChild(el);
       });
   });
-</script>
 
+function openLB(src){ document.getElementById("lb-img").src=src; document.getElementById("lightbox").style.display="flex"; }
+function closeLB(){ document.getElementById("lightbox").style.display="none"; }
+</script>
 </body>
 </html>
