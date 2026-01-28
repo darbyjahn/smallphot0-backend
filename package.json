@@ -1,9 +1,13 @@
 {
   "name": "smallphotos",
   "version": "1.0.0",
+  "description": "User-created photo galleries",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "express": "^4.18.2",
