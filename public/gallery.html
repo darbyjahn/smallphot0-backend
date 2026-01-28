@@ -1,41 +1,52 @@
-<div class="upload">
-  <input type="file" id="files" multiple>
-  <button id="uploadBtn">Upload</button>
-</div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gallery</title>
+</head>
+<body>
+<h1 id="title"></h1>
+
+<button onclick="location.href='/'">Back to Main Page</button>
+
+<input type="file" id="files" multiple>
+<button onclick="upload()">Upload</button>
+
+<div class="gallery" id="gallery"></div>
 
 <script>
-let username = location.pathname.split("/")[2]; // get username from URL
+const username = location.pathname.split("/")[2];
 
-document.getElementById("uploadBtn").onclick = async function() {
+async function upload(){
   const files = document.getElementById("files").files;
-  if (!files.length) {
-    alert("Please select at least one file to upload.");
-    return;
-  }
-
+  if(!files.length) return alert("Select files");
   const fd = new FormData();
-  for (let f of files) fd.append("files", f);
-
+  for(let f of files) fd.append("files",f);
   try {
-    const res = await fetch(`/api/upload/${username}`, {
-      method: "POST",
-      body: fd
-    });
-
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || "Server error");
-    }
-
+    const res = await fetch(`/api/upload/${username}`, {method:"POST", body:fd});
     const data = await res.json();
-    if (!data.success) throw new Error("Upload failed");
+    if(data.error) return alert(data.error);
+    location.reload();
+  } catch(err){ alert("Upload failed"); console.error(err);}
+}
 
-    alert("Files uploaded successfully!");
-    window.location.reload(); // refresh gallery to show new media
-
-  } catch (err) {
-    console.error("Upload error:", err);
-    alert("Upload failed: " + err.message);
-  }
-};
+async function loadGallery(){
+  try{
+    const res = await fetch("gallery.json");
+    const g = await res.json();
+    document.getElementById("title").textContent=g.title;
+    const gal = document.getElementById("gallery");
+    gal.innerHTML="";
+    g.items.forEach(i=>{
+      const el = document.createElement(i.type==="video"?"video":"img");
+      el.src="media/"+i.stored;
+      if(i.type==="video"){el.controls=true; el.playsInline=true;}
+      gal.appendChild(el);
+    });
+  }catch(e){ console.error(e);}
+}
+loadGallery();
 </script>
+</body>
+</html>
