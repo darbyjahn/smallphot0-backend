@@ -1,75 +1,85 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gallery</title>
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
 
-<button onclick="location.href='/'">⬅ Back to All Galleries</button>
-<button id="deleteBtn">Delete My Gallery</button>
+<button onclick="goBack()" style="margin:20px;padding:10px 15px;">← Back to Main Page</button>
 
 <h1 id="title"></h1>
-
-<div class="upload">
-  <input type="file" id="files" multiple>
-  <button onclick="upload()">Upload</button>
-</div>
-
 <div class="gallery" id="gallery"></div>
 
-<div id="lightbox" onclick="closeLB()">
-  <img id="lb-img">
+<div id="lightbox">
+  <div id="prev" class="arrow">&#10094;</div>
+  <div id="lightbox-content"></div>
+  <div id="next" class="arrow">&#10095;</div>
 </div>
 
 <script>
-const API_URL = "https://smallphot0-api.onrender.com";
-let username = location.pathname.split("/")[2];
+function goBack() { window.location.href = "/index.html"; }
 
-document.getElementById("deleteBtn").onclick = async () => {
-  if (!confirm("Delete your gallery?")) return;
+const username = location.pathname.split("/")[2];
+const galleryEl = document.getElementById("gallery");
+const lightbox = document.getElementById("lightbox");
+const content = document.getElementById("lightbox-content");
+const prev = document.getElementById("prev");
+const next = document.getElementById("next");
+
+let media = [];
+let index = 0;
+
+async function loadGallery() {
   try {
-    const res = await fetch(`${API_URL}/api/delete/${username}`, { method: "DELETE" });
-    const data = await res.json();
-    if (data.success) location.href = '/';
-    else alert(data.error || "Failed to delete");
-  } catch (err) { console.error(err); alert("Server error"); }
-};
+    const res = await fetch(`/galleries/${username}/gallery.json`);
+    const g = await res.json();
 
-function upload() {
-  const files = document.getElementById("files").files;
-  if (!files.length) return;
-  const fd = new FormData();
-  for (let f of files) fd.append("files", f);
-
-  fetch(`${API_URL}/api/upload/${username}`, { method: "POST", body: fd })
-    .then(res => res.json())
-    .then(data => data.success ? location.reload() : alert(data.error || "Upload failed"))
-    .catch(err => { console.error(err); alert("Server error"); });
-}
-
-/* LOAD GALLERY ITEMS */
-fetch("gallery.json")
-  .then(r => r.json())
-  .then(g => {
     document.body.style.background = g.bg_color;
     document.body.style.color = g.text_color;
     document.getElementById("title").textContent = g.title;
 
-    g.items.sort((a,b)=>a.batch-b.batch||a.seq-b.seq)
-      .forEach(i => {
-        const el = document.createElement(i.type==="video"?"video":"img");
-        el.src = "media/" + i.stored;
-        if (i.type==="video"){ el.controls=true; el.playsInline=true; }
-        el.onclick = () => openLB(el.src);
-        document.getElementById("gallery").appendChild(el);
-      });
-  });
+    media = g.items.sort((a,b)=>a.batch-b.batch||a.seq-b.seq);
 
-function openLB(src){ document.getElementById("lb-img").src=src; document.getElementById("lightbox").style.display="flex"; }
-function closeLB(){ document.getElementById("lightbox").style.display="none"; }
+    media.forEach((i, idx) => {
+      const el = document.createElement(i.type==="video"?"video":"img");
+      el.src = "media/" + i.stored;
+
+      if (i.type==="video") {
+        el.controls = true;
+        el.playsInline = true;
+      }
+
+      el.onclick = () => show(idx);
+      galleryEl.appendChild(el);
+    });
+  } catch (err) {
+    console.error(err);
+    galleryEl.innerHTML = "<p>Unable to load gallery</p>";
+  }
+}
+
+function show(i) {
+  index = i;
+  content.innerHTML = "";
+  const f = media[i];
+  let el = f.type==="video" ? document.createElement("video") : document.createElement("img");
+  el.src = "media/" + f.stored;
+
+  if(f.type==="video"){el.controls=true;el.playsInline=true;el.autoplay=true;}
+  content.appendChild(el);
+  lightbox.style.display="flex";
+}
+
+function closeLB(){lightbox.style.display="none";content.innerHTML="";}
+lightbox.addEventListener("click", e => { if(!content.contains(e.target)) closeLB(); });
+
+prev.onclick = e=>{e.stopPropagation(); show((index-1+media.length)%media.length);}
+next.onclick = e=>{e.stopPropagation(); show((index+1)%media.length);}
+
+loadGallery();
 </script>
 </body>
 </html>
