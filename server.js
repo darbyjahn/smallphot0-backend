@@ -13,6 +13,10 @@ app.use(fileUpload());
 app.use(express.static("public"));
 app.use("/galleries", express.static("galleries"));
 
+app.get("/", (req, res) => {
+  res.send("✅ SmallPhotos API is running");
+});
+
 /* ---------- DATA FILE ---------- */
 const GALLERIES_FILE = "galleries.json";
 
