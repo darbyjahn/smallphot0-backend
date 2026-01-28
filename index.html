@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Small Photos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+<h1>GALLERIES</h1>
+
+<button class="create-btn" id="openBtn">+ Create Gallery</button>
+
+<div id="list"></div>
+
+<!-- MODAL -->
+<div id="modal">
+  <div class="modal-box">
+    <h2>Create Your Gallery</h2>
+
+    <input id="name" placeholder="Your name" />
+    <label>
+      Background
+      <input id="bg" type="color" value="#ff9f1c" />
+    </label>
+    <label>
+      Text
+      <input id="text" type="color" value="#000000" />
+    </label>
+
+    <button id="createBtn">Create</button>
+    <button class="cancel" id="cancelBtn">Cancel</button>
+  </div>
+</div>
+
+<script>
+console.log("JS LOADED");
+
+/* ---------- ELEMENTS ---------- */
+const modal = document.getElementById("modal");
+const openBtn = document.getElementById("openBtn");
+const cancelBtn = document.getElementById("cancelBtn");
+const createBtn = document.getElementById("createBtn");
+
+/* ---------- MODAL CONTROLS ---------- */
+openBtn.onclick = () => {
+  modal.style.display = "flex";
+};
+
+cancelBtn.onclick = () => {
+  modal.style.display = "none";
+};
+
+/* ---------- CREATE GALLERY ---------- */
+createBtn.onclick = () => {
+  console.log("CREATE CLICKED");
+
+  const name = document.getElementById("name").value.trim();
+  const bg = document.getElementById("bg").value;
+  const text = document.getElementById("text").value;
+
+  if (!name) {
+    alert("Enter a name");
+    return;
+  }
+
+  const username = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  fetch("/api/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username,
+      title: name,
+      bg,
+      text
+    })
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.error) {
+      alert(res.error);
+      return;
+    }
+    window.location.href = `/galleries/${username}/`;
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Server error");
+  });
+};
+
+/* ---------- LOAD EXISTING GALLERIES ---------- */
+fetch("/galleries.json")
+  .then(r => r.json())
+  .then(data => {
+    const list = document.getElementById("list");
+    data.users.forEach(u => {
+      const a = document.createElement("a");
+      a.href = `/galleries/${u.username}/`;
+      a.textContent = u.title;
+      a.className = "card";
+      list.appendChild(a);
+    });
+  });
+</script>
+
+</body>
+</html>
