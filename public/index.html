@@ -9,7 +9,8 @@
 <body>
 
 <h1>GALLERIES</h1>
-<button id="openBtn">+ Create Gallery</button>
+<button class="create-btn" id="openBtn">+ Create Gallery</button>
+
 <div id="list"></div>
 
 <!-- MODAL -->
@@ -17,63 +18,69 @@
   <div class="modal-box">
     <h2>Create Your Gallery</h2>
     <input id="name" placeholder="Your name" />
-    <label>
-      Background
-      <input id="bg" type="color" value="#ff9f1c" />
-    </label>
-    <label>
-      Text
-      <input id="text" type="color" value="#000000" />
-    </label>
+    <label>Background <input id="bg" type="color" value="#ff9f1c" /></label>
+    <label>Text <input id="text" type="color" value="#000000" /></label>
     <button id="createBtn">Create</button>
     <button class="cancel" id="cancelBtn">Cancel</button>
   </div>
 </div>
 
 <script>
-const API_URL = "";
+const API_URL = "/";
 
-// Modal controls
+/* ---------- ELEMENTS ---------- */
 const modal = document.getElementById("modal");
-document.getElementById("openBtn").onclick = () => modal.style.display="flex";
-document.getElementById("cancelBtn").onclick = () => modal.style.display="none";
+const openBtn = document.getElementById("openBtn");
+const cancelBtn = document.getElementById("cancelBtn");
+const createBtn = document.getElementById("createBtn");
+const galleryList = document.getElementById("list");
 
-// Create gallery
-document.getElementById("createBtn").onclick = async () => {
+/* ---------- MODAL CONTROLS ---------- */
+openBtn.onclick = () => modal.style.display = "flex";
+cancelBtn.onclick = () => modal.style.display = "none";
+
+/* ---------- CREATE GALLERY ---------- */
+createBtn.onclick = async () => {
   const name = document.getElementById("name").value.trim();
-  if (!name) return alert("Enter a name");
-
-  const username = name.toLowerCase().replace(/[^a-z0-9]/g,"");
   const bg = document.getElementById("bg").value;
   const text = document.getElementById("text").value;
+  if (!name) return alert("Enter a name");
 
-  const res = await fetch("/api/create", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({username,title:name,bg,text})
-  });
-  const data = await res.json();
-  if (!data.success) return alert(data.error || "Failed to create");
+  const username = name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-  loadGalleries(); // Refresh list
+  try {
+    const res = await fetch(`${API_URL}api/create`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ username, title: name, bg, text })
+    });
+    const data = await res.json();
+    if (res.status !== 200 || data.error) return alert(data.error || "Server error");
+
+    window.location.href = `/galleries/${username}/`;
+  } catch (err) {
+    alert("Server error — check console");
+    console.error(err);
+  }
 };
 
-// Load galleries
+/* ---------- LOAD EXISTING GALLERIES ---------- */
 async function loadGalleries() {
   try {
-    const res = await fetch("/api/galleries");
-    const users = await res.json();
-    const list = document.getElementById("list");
-    list.innerHTML = "";
-    users.forEach(u=>{
+    const res = await fetch(`${API_URL}api/galleries`);
+    const data = await res.json();
+
+    galleryList.innerHTML = "";
+    data.forEach(u => {
       const a = document.createElement("a");
-      a.href = `/galleries/${u.username}/index.html`;
+      a.href = `/galleries/${u.username}/`;
       a.textContent = u.title;
-      list.appendChild(a);
+      a.className = "card";
+      galleryList.appendChild(a);
     });
-  } catch(err) {
-    console.error("❌ Failed to load galleries:", err);
-    document.getElementById("list").innerHTML="<p>Unable to load galleries</p>";
+  } catch (err) {
+    galleryList.innerHTML = "<p>Unable to load galleries</p>";
+    console.error(err);
   }
 }
 
