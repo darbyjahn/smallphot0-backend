@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Small Photos</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
@@ -11,56 +12,71 @@
 <button id="openBtn">+ Create Gallery</button>
 <div id="list"></div>
 
-<!-- CREATE MODAL -->
-<div id="modal" style="display:none;">
-  <input id="name" placeholder="Your name">
-  <label>Background: <input id="bg" type="color" value="#ff9f1c"></label>
-  <label>Text: <input id="text" type="color" value="#000000"></label>
-  <button id="createBtn">Create</button>
-  <button id="cancelBtn">Cancel</button>
+<!-- MODAL -->
+<div id="modal">
+  <div class="modal-box">
+    <h2>Create Your Gallery</h2>
+    <input id="name" placeholder="Your name" />
+    <label>
+      Background
+      <input id="bg" type="color" value="#ff9f1c" />
+    </label>
+    <label>
+      Text
+      <input id="text" type="color" value="#000000" />
+    </label>
+    <button id="createBtn">Create</button>
+    <button class="cancel" id="cancelBtn">Cancel</button>
+  </div>
 </div>
 
 <script>
-const API_URL = ""; // same origin
+const API_URL = "";
 
+// Modal controls
 const modal = document.getElementById("modal");
-document.getElementById("openBtn").onclick = () => modal.style.display="block";
+document.getElementById("openBtn").onclick = () => modal.style.display="flex";
 document.getElementById("cancelBtn").onclick = () => modal.style.display="none";
 
+// Create gallery
 document.getElementById("createBtn").onclick = async () => {
   const name = document.getElementById("name").value.trim();
-  const bg = document.getElementById("bg").value;
-  const text = document.getElementById("text").value;
   if (!name) return alert("Enter a name");
 
   const username = name.toLowerCase().replace(/[^a-z0-9]/g,"");
-  try {
-    const res = await fetch(`${API_URL}/api/create`, {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({username, title:name, bg, text})
-    });
-    const data = await res.json();
-    if(data.error) return alert(data.error);
-    location.reload();
-  } catch(err) { alert("Server error"); console.error(err);}
+  const bg = document.getElementById("bg").value;
+  const text = document.getElementById("text").value;
+
+  const res = await fetch("/api/create", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({username,title:name,bg,text})
+  });
+  const data = await res.json();
+  if (!data.success) return alert(data.error || "Failed to create");
+
+  loadGalleries(); // Refresh list
 };
 
 // Load galleries
 async function loadGalleries() {
   try {
-    const res = await fetch(`${API_URL}/api/galleries`);
-    const data = await res.json();
+    const res = await fetch("/api/galleries");
+    const users = await res.json();
     const list = document.getElementById("list");
-    list.innerHTML="";
-    data.forEach(u=>{
+    list.innerHTML = "";
+    users.forEach(u=>{
       const a = document.createElement("a");
-      a.href=`/galleries/${u.username}/`;
-      a.textContent=u.title;
+      a.href = `/galleries/${u.username}/index.html`;
+      a.textContent = u.title;
       list.appendChild(a);
     });
-  } catch(e){ console.error(e); document.getElementById("list").innerHTML="Unable to load galleries"; }
+  } catch(err) {
+    console.error("❌ Failed to load galleries:", err);
+    document.getElementById("list").innerHTML="<p>Unable to load galleries</p>";
+  }
 }
+
 loadGalleries();
 </script>
 </body>
