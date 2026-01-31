@@ -10,7 +10,12 @@ const PORT = process.env.PORT || 3000;
 /* ---------- MIDDLEWARE ---------- */
 app.use(express.json());
 app.use(fileUpload());
+
+// Serve normal site
 app.use(express.static(path.join(__dirname, "public")));
+
+// 👉 THIS IS THE MISSING LINE
+app.use("/galleries", express.static(path.join(__dirname, "public", "galleries")));
 
 /* ---------- ROOT ---------- */
 app.get("/", (req, res) => {
@@ -57,6 +62,7 @@ app.post("/api/create", (req, res) => {
 
     const base = path.join(__dirname, "public", "galleries", username);
     const mediaDir = path.join(base, "media");
+
     fs.mkdirSync(mediaDir, { recursive: true });
 
     fs.writeFileSync(
@@ -89,11 +95,31 @@ app.post("/api/create", (req, res) => {
 });
 
 /* =========================================================
+   DIRECT NAV FIX → /galleries/username
+   ========================================================= */
+app.get("/galleries/:user", (req, res) => {
+  const file = path.join(
+    __dirname,
+    "public",
+    "galleries",
+    req.params.user,
+    "index.html"
+  );
+
+  if (fs.existsSync(file)) {
+    res.sendFile(file);
+  } else {
+    res.status(404).send("Gallery not found");
+  }
+});
+
+/* =========================================================
    DELETE GALLERY
    ========================================================= */
 app.delete("/api/delete/:user", (req, res) => {
   try {
     const base = path.join(__dirname, "public", "galleries", req.params.user);
+
     if (!fs.existsSync(base))
       return res.status(404).json({ error: "Gallery not found" });
 
@@ -110,7 +136,7 @@ app.delete("/api/delete/:user", (req, res) => {
 });
 
 /* =========================================================
-   UPLOAD MEDIA (MULTI FILE FIXED)
+   UPLOAD MEDIA — MULTI FILE WORKING
    ========================================================= */
 app.post("/api/upload/:user", async (req, res) => {
   try {
@@ -118,6 +144,7 @@ app.post("/api/upload/:user", async (req, res) => {
       return res.status(400).json({ error: "No files uploaded" });
 
     const user = req.params.user;
+
     const base = path.join(__dirname, "public", "galleries", user);
     const mediaDir = path.join(base, "media");
     const galleryFile = path.join(base, "gallery.json");
@@ -126,6 +153,7 @@ app.post("/api/upload/:user", async (req, res) => {
       return res.status(404).json({ error: "Gallery not found" });
 
     const gallery = JSON.parse(fs.readFileSync(galleryFile));
+
     const uploadList = Array.isArray(req.files.files)
       ? req.files.files
       : [req.files.files];
@@ -134,6 +162,7 @@ app.post("/api/upload/:user", async (req, res) => {
 
     for (let i = 0; i < uploadList.length; i++) {
       const file = uploadList[i];
+
       const ext = path.extname(file.name).toLowerCase();
       const safeName = `${batch}_${i}${ext}`;
       const outPath = path.join(mediaDir, safeName);
@@ -151,13 +180,19 @@ app.post("/api/upload/:user", async (req, res) => {
         type
       });
 
+      // AVI → MP4 auto convert
       if (ext === ".avi") {
         const mp4 = safeName.replace(".avi", ".mp4");
-        exec(`ffmpeg -i "${outPath}" "${path.join(mediaDir, mp4)}"`);
+
+        exec(
+          `ffmpeg -i "${outPath}" "${path.join(mediaDir, mp4)}"`,
+          () => fs.unlinkSync(outPath)
+        );
       }
     }
 
     fs.writeFileSync(galleryFile, JSON.stringify(gallery, null, 2));
+
     res.json({ success: true });
   } catch (err) {
     console.error("❌ UPLOAD FAILED:", err);
