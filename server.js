@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 3000;
 /* ---------- MIDDLEWARE ---------- */
 app.use(express.json());
 app.use(fileUpload());
+
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/galleries", express.static(path.join(__dirname, "public", "galleries")));
 
@@ -18,21 +19,23 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-/* =========================================================
-   LOAD / SAVE GALLERIES DATA
-   ========================================================= */
+/* ---------- DATA FILE ---------- */
 const GALLERIES_FILE = path.join(__dirname, "galleries.json");
 
-// Ensure galleries.json exists
 if (!fs.existsSync(GALLERIES_FILE)) {
   fs.writeFileSync(GALLERIES_FILE, JSON.stringify({ users: [] }, null, 2));
 }
 
-const loadGalleries = () => JSON.parse(fs.readFileSync(GALLERIES_FILE, "utf8"));
-const saveGalleries = (data) => fs.writeFileSync(GALLERIES_FILE, JSON.stringify(data, null, 2));
+const loadGalleries = () =>
+  JSON.parse(fs.readFileSync(GALLERIES_FILE, "utf8"));
+
+const saveGalleries = data =>
+  fs.writeFileSync(GALLERIES_FILE, JSON.stringify(data, null, 2));
+
+
 
 /* =========================================================
-   LIST GALLERIES
+   LIST GALLERIES → HOMEPAGE USES THIS
    ========================================================= */
 app.get("/api/galleries", (req, res) => {
   try {
@@ -42,44 +45,68 @@ app.get("/api/galleries", (req, res) => {
   }
 });
 
+
+
 /* =========================================================
-   CREATE GALLERY (optional, but still available)
+   CREATE GALLERY (MANUAL)
    ========================================================= */
-app.post("/api/create", (req, res) => {
-  try {
-    const { username, title, bg, text } = req.body;
-    if (!username || !title) return res.status(400).json({ error: "Missing fields" });
+function ensureGalleryExists(username, title = username) {
 
-    const data = loadGalleries();
-    if (data.users.find(u => u.username === username))
-      return res.status(400).json({ error: "Gallery already exists" });
+  const data = loadGalleries();
 
-    const base = path.join(__dirname, "public", "galleries", username);
-    const mediaDir = path.join(base, "media");
+  const base = path.join(__dirname, "public", "galleries", username);
+  const mediaDir = path.join(base, "media");
+
+  if (!fs.existsSync(base)) {
     fs.mkdirSync(mediaDir, { recursive: true });
 
-    // Create gallery.json
     fs.writeFileSync(
       path.join(base, "gallery.json"),
       JSON.stringify(
-        { title, bg_color: bg || "#ffffff", text_color: text || "#000000", items: [] },
+        {
+          title: title,
+          bg_color: "#ffffff",
+          text_color: "#000000",
+          items: []
+        },
         null,
         2
       )
     );
 
-    // Copy gallery.html as index.html
-    fs.copyFileSync(path.join(__dirname, "public", "gallery.html"), path.join(base, "index.html"));
+    fs.copyFileSync(
+      path.join(__dirname, "public", "gallery.html"),
+      path.join(base, "index.html")
+    );
+  }
 
+  // 👉 CRITICAL PART — add to main list if missing
+  if (!data.users.find(u => u.username === username)) {
     data.users.push({ username, title });
     saveGalleries(data);
+  }
+}
+
+
+
+app.post("/api/create", (req, res) => {
+  try {
+    const { username, title } = req.body;
+
+    if (!username || !title)
+      return res.status(400).json({ error: "Missing fields" });
+
+    ensureGalleryExists(username, title);
 
     res.json({ success: true });
+
   } catch (err) {
     console.error("❌ CREATE FAILED:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
+
+
 
 /* =========================================================
    DELETE GALLERY
@@ -87,7 +114,9 @@ app.post("/api/create", (req, res) => {
 app.delete("/api/delete/:user", (req, res) => {
   try {
     const base = path.join(__dirname, "public", "galleries", req.params.user);
-    if (!fs.existsSync(base)) return res.status(404).json({ error: "Gallery not found" });
+
+    if (!fs.existsSync(base))
+      return res.status(404).json({ error: "Gallery not found" });
 
     fs.rmSync(base, { recursive: true, force: true });
 
@@ -96,42 +125,47 @@ app.delete("/api/delete/:user", (req, res) => {
     saveGalleries(data);
 
     res.json({ success: true });
+
   } catch {
     res.status(500).json({ error: "Server error" });
   }
 });
 
+
+
 /* =========================================================
-   UPLOAD MEDIA WITH AUTO-GALLERY CREATION & VIDEO CONVERSION
+   UPLOAD MEDIA WITH AUTO-CREATE + VIDEO CONVERT
    ========================================================= */
 app.post("/api/upload/:user", async (req, res) => {
   try {
-    if (!req.files || !req.files.files) return res.status(400).json({ error: "No files uploaded" });
 
-    const username = req.params.user;
-    const base = path.join(__dirname, "public", "galleries", username);
+    if (!req.files || !req.files.files)
+      return res.status(400).json({ error: "No files uploaded" });
+
+    const user = req.params.user;
+
+    // 👉 THIS FIXES YOUR HOMEPAGE PROBLEM
+    ensureGalleryExists(user, user);
+
+    const base = path.join(__dirname, "public", "galleries", user);
     const mediaDir = path.join(base, "media");
     const galleryFile = path.join(base, "gallery.json");
 
-    // Auto-create gallery if missing
-    if (!fs.existsSync(base)) {
-      fs.mkdirSync(mediaDir, { recursive: true });
-      fs.writeFileSync(
-        galleryFile,
-        JSON.stringify({ title: username, bg_color: "#ffffff", text_color: "#000000", items: [] }, null, 2)
-      );
-      // Copy gallery.html as index.html
-      fs.copyFileSync(path.join(__dirname, "public", "gallery.html"), path.join(base, "index.html"));
-    }
-
     const gallery = JSON.parse(fs.readFileSync(galleryFile));
 
-    const uploadList = Array.isArray(req.files.files) ? req.files.files : [req.files.files];
+    const uploadList = Array.isArray(req.files.files)
+      ? req.files.files
+      : [req.files.files];
+
     const batch = Date.now();
 
+
+
     for (let i = 0; i < uploadList.length; i++) {
+
       const file = uploadList[i];
       const ext = path.extname(file.name).toLowerCase();
+
       const safeName = `${batch}_${i}${ext}`;
       const outPath = path.join(mediaDir, safeName);
 
@@ -139,54 +173,64 @@ app.post("/api/upload/:user", async (req, res) => {
 
       const isVideo = [".avi", ".mov", ".mp4", ".mkv"].includes(ext);
 
-      let storedName = safeName;
+      gallery.items.push({
+        stored: safeName,
+        batch,
+        seq: i,
+        type: isVideo ? "video" : "image"
+      });
 
-      // Video conversion
-      if (isVideo && ext !== ".mp4") {
+
+
+      /* ========== VIDEO CONVERSION ========== */
+      if (isVideo) {
+
         const mp4Name = `${batch}_${i}_web.mp4`;
         const mp4Path = path.join(mediaDir, mp4Name);
 
         await new Promise((resolve, reject) => {
+
           const cmd = `
             ffmpeg -i "${outPath}" \
             -vf "scale='min(1280,iw)':'-2'" \
-            -c:v libx264 -preset veryfast -crf 28 \
-            -b:v 1200k -maxrate 1500k -bufsize 2000k \
+            -c:v libx264 \
+            -preset veryfast \
+            -crf 28 \
+            -b:v 1200k \
             -movflags +faststart \
-            -c:a aac -b:a 128k \
+            -c:a aac \
+            -b:a 128k \
             "${mp4Path}"
           `;
+
           exec(cmd, (err) => {
             if (err) return reject(err);
-            // Delete original
+
             fs.unlinkSync(outPath);
-            storedName = mp4Name;
+
+            gallery.items[gallery.items.length - 1].stored = mp4Name;
+            gallery.items[gallery.items.length - 1].type = "video";
+
             resolve();
           });
         });
       }
-
-      gallery.items.push({ stored: storedName, batch, seq: i, type: isVideo ? "video" : "image" });
     }
 
+
+
     fs.writeFileSync(galleryFile, JSON.stringify(gallery, null, 2));
+
     res.json({ success: true });
+
   } catch (err) {
     console.error("❌ UPLOAD FAILED:", err);
     res.status(500).json({ error: "Upload failed" });
   }
 });
 
-/* =========================================================
-   SERVE GALLERY PAGES
-   ========================================================= */
-app.get("/galleries/:user", (req, res) => {
-  const file = path.join(__dirname, "public", "galleries", req.params.user, "index.html");
-  if (fs.existsSync(file)) res.sendFile(file);
-  else res.status(404).send("Gallery not found");
-});
 
-/* =========================================================
-   START SERVER
-   ========================================================= */
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
+app.listen(PORT, () =>
+  console.log(`✅ SmallPhotos running on port ${PORT}`)
+);
