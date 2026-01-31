@@ -9,8 +9,6 @@
 <body>
 
 <button id="backBtn">⬅ Back to Galleries</button>
-
-<!-- NEW DELETE BUTTON -->
 <button id="deleteBtn" style="background:#c33;color:white;margin-left:8px;">
   🗑 Delete Gallery
 </button>
@@ -31,42 +29,21 @@ const titleEl = document.getElementById("title");
 
 document.getElementById("backBtn").onclick = () => window.location.href="/";
 
-
-/* =======================================================
-   DELETE GALLERY
-   ======================================================= */
 document.getElementById("deleteBtn").onclick = async () => {
-
-  const ok = confirm(
-    "⚠️ This will permanently delete this gallery and ALL its media.\n\nContinue?"
-  );
-
+  const ok = confirm("⚠️ This will permanently delete this gallery and ALL its media.\n\nContinue?");
   if (!ok) return;
 
   try {
-    const res = await fetch(`/api/delete/${username}`, {
-      method: "DELETE"
-    });
-
+    const res = await fetch(`/api/delete/${username}`, { method: "DELETE" });
     const data = await res.json();
-
-    if (data.error) {
-      return alert("Delete failed: " + data.error);
-    }
-
-    // SUCCESS → go back home
+    if (data.error) return alert("Delete failed: " + data.error);
     window.location.href = "/";
-
   } catch (err) {
     alert("Delete failed — check console");
     console.error(err);
   }
 };
 
-
-/* =======================================================
-   UPLOAD
-   ======================================================= */
 async function upload() {
   const files = document.getElementById("files").files;
   if (!files.length) return alert("Select files");
@@ -75,26 +52,16 @@ async function upload() {
   for (let f of files) fd.append("files", f);
 
   try {
-    const res = await fetch(`/api/upload/${username}`, {
-      method: "POST",
-      body: fd
-    });
-
+    const res = await fetch(`/api/upload/${username}`, { method: "POST", body: fd });
     const data = await res.json();
     if (data.error) return alert("Upload failed: " + data.error);
-
     loadGallery(); // reload after upload
-
   } catch (err) {
     alert("Upload failed — check console");
     console.error(err);
   }
 }
 
-
-/* =======================================================
-   LOAD GALLERY
-   ======================================================= */
 async function loadGallery() {
   try {
     const res = await fetch(`/galleries/${username}/gallery.json`);
@@ -106,23 +73,12 @@ async function loadGallery() {
 
     galleryEl.innerHTML = "";
 
-    data.items
-      .sort((a,b)=>a.batch-b.batch || a.seq-b.seq)
-      .forEach(i => {
-
-        const el = document.createElement(
-          i.type === "video" ? "video" : "img"
-        );
-
-        el.src = "media/" + i.stored;
-
-        if (i.type === "video") {
-          el.controls = true;
-          el.playsInline = true;
-        }
-
-        galleryEl.appendChild(el);
-      });
+    data.items.sort((a,b)=>a.batch-b.batch || a.seq-b.seq).forEach(i => {
+      const el = document.createElement(i.type === "video" ? "video" : "img");
+      el.src = "media/" + i.stored;
+      if (i.type === "video") { el.controls = true; el.playsInline = true; }
+      galleryEl.appendChild(el);
+    });
 
   } catch(err) {
     console.error(err);
