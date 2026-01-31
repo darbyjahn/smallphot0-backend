@@ -2,89 +2,151 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Small Photos</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="styles.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Galleries</title>
+<link rel="stylesheet" href="/styles.css">
+
+<style>
+/* ---------- BASIC LAYOUT ---------- */
+body {
+  margin: 0;
+  padding: 2rem;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+h1 {
+  margin-bottom: 1.5rem;
+}
+
+/* ---------- CREATE BUTTON ---------- */
+#createBtn {
+  margin-bottom: 2rem;
+  padding: .5rem 1.2rem;
+  cursor: pointer;
+}
+
+/* ---------- GALLERY GRID ---------- */
+.gallery-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1.5rem;
+}
+
+.gallery-card {
+  border: 1px solid #ccc;
+  padding: 1.2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .15s ease;
+}
+
+.gallery-card:hover {
+  transform: scale(1.03);
+}
+
+/* ---------- MODAL ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.25);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  padding: 2rem;
+  width: 300px;
+}
+
+.modal input {
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: .4rem;
+}
+
+.modal button {
+  width: 100%;
+  padding: .5rem;
+  cursor: pointer;
+}
+</style>
 </head>
+
 <body>
 
-<h1>GALLERIES</h1>
-<button class="create-btn" id="openBtn">+ Create Gallery</button>
+<h1>Galleries</h1>
 
-<div id="list"></div>
+<button id="createBtn">Create Gallery</button>
 
-<!-- MODAL -->
-<div id="modal">
-  <div class="modal-box">
-    <h2>Create Your Gallery</h2>
-    <input id="name" placeholder="Your name" />
-    <label>Background <input id="bg" type="color" value="#ff9f1c" /></label>
-    <label>Text <input id="text" type="color" value="#000000" /></label>
-    <button id="createBtn">Create</button>
-    <button class="cancel" id="cancelBtn">Cancel</button>
+<div class="gallery-list" id="galleryList"></div>
+
+<!-- ---------- CREATE MODAL ---------- -->
+<div class="modal-overlay" id="modal">
+  <div class="modal" onclick="event.stopPropagation()">
+    <input id="name" placeholder="Gallery name">
+    <input id="bg" type="color" value="#ffffff">
+    <input id="text" type="color" value="#000000">
+    <button onclick="createGallery()">Create</button>
   </div>
 </div>
 
 <script>
-const API_URL = "/";
-
-/* ---------- ELEMENTS ---------- */
+const listEl = document.getElementById("galleryList");
 const modal = document.getElementById("modal");
-const openBtn = document.getElementById("openBtn");
-const cancelBtn = document.getElementById("cancelBtn");
-const createBtn = document.getElementById("createBtn");
-const galleryList = document.getElementById("list");
+
+/* ---------- LOAD GALLERIES ---------- */
+async function loadGalleries() {
+  listEl.innerHTML = "";
+  const res = await fetch("/api/galleries");
+  const users = await res.json();
+
+  users.forEach(u => {
+    const div = document.createElement("div");
+    div.className = "gallery-card";
+    div.textContent = u.title;
+    div.onclick = () => {
+      window.location.href = `/galleries/${u.username}/`;
+    };
+    listEl.appendChild(div);
+  });
+}
 
 /* ---------- MODAL CONTROLS ---------- */
-openBtn.onclick = () => modal.style.display = "flex";
-cancelBtn.onclick = () => modal.style.display = "none";
-
-/* ---------- CREATE GALLERY ---------- */
-createBtn.onclick = async () => {
-  const name = document.getElementById("name").value.trim();
-  const bg = document.getElementById("bg").value;
-  const text = document.getElementById("text").value;
-  if (!name) return alert("Enter a name");
-
-  const username = name.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-  try {
-    const res = await fetch(`${API_URL}api/create`, {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ username, title: name, bg, text })
-    });
-    const data = await res.json();
-    if (res.status !== 200 || data.error) return alert(data.error || "Server error");
-
-    window.location.href = `/galleries/${username}/`;
-  } catch (err) {
-    alert("Server error — check console");
-    console.error(err);
-  }
+document.getElementById("createBtn").onclick = () => {
+  modal.style.display = "flex";
 };
 
-/* ---------- LOAD EXISTING GALLERIES ---------- */
-async function loadGalleries() {
-  try {
-    const res = await fetch(`${API_URL}api/galleries`);
-    const data = await res.json();
+modal.onclick = () => {
+  modal.style.display = "none";
+};
 
-    galleryList.innerHTML = "";
-    data.forEach(u => {
-      const a = document.createElement("a");
-      a.href = `/galleries/${u.username}/`;
-      a.textContent = u.title;
-      a.className = "card";
-      galleryList.appendChild(a);
-    });
-  } catch (err) {
-    galleryList.innerHTML = "<p>Unable to load galleries</p>";
-    console.error(err);
-  }
+/* ---------- CREATE ---------- */
+async function createGallery() {
+  const username = document.getElementById("name").value.trim().toLowerCase().replace(/\s+/g,"");
+  const title = document.getElementById("name").value.trim();
+  const bg = document.getElementById("bg").value;
+  const text = document.getElementById("text").value;
+
+  if (!title) return alert("Name required");
+
+  const res = await fetch("/api/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, title, bg, text })
+  });
+
+  const data = await res.json();
+  if (data.error) return alert(data.error);
+
+  modal.style.display = "none";
+  loadGalleries();
 }
 
 loadGalleries();
 </script>
+
 </body>
 </html>

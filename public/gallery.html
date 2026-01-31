@@ -3,150 +3,72 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Galleries</title>
+<title>Gallery</title>
 <link rel="stylesheet" href="/styles.css">
-
-<style>
-/* ---------- BASIC LAYOUT ---------- */
-body {
-  margin: 0;
-  padding: 2rem;
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-h1 {
-  margin-bottom: 1.5rem;
-}
-
-/* ---------- CREATE BUTTON ---------- */
-#createBtn {
-  margin-bottom: 2rem;
-  padding: .5rem 1.2rem;
-  cursor: pointer;
-}
-
-/* ---------- GALLERY GRID ---------- */
-.gallery-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 1.5rem;
-}
-
-.gallery-card {
-  border: 1px solid #ccc;
-  padding: 1.2rem;
-  text-align: center;
-  cursor: pointer;
-  transition: transform .15s ease;
-}
-
-.gallery-card:hover {
-  transform: scale(1.03);
-}
-
-/* ---------- MODAL ---------- */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.25);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: white;
-  padding: 2rem;
-  width: 300px;
-}
-
-.modal input {
-  width: 100%;
-  margin-bottom: 1rem;
-  padding: .4rem;
-}
-
-.modal button {
-  width: 100%;
-  padding: .5rem;
-  cursor: pointer;
-}
-</style>
 </head>
-
 <body>
 
-<h1>Galleries</h1>
+<button id="backBtn">⬅ Back to Galleries</button>
 
-<button id="createBtn">Create Gallery</button>
+<h1 id="title"></h1>
 
-<div class="gallery-list" id="galleryList"></div>
-
-<!-- ---------- CREATE MODAL ---------- -->
-<div class="modal-overlay" id="modal">
-  <div class="modal" onclick="event.stopPropagation()">
-    <input id="name" placeholder="Gallery name">
-    <input id="bg" type="color" value="#ffffff">
-    <input id="text" type="color" value="#000000">
-    <button onclick="createGallery()">Create</button>
-  </div>
+<div class="upload">
+  <input type="file" id="files" multiple name="files">
+  <button onclick="upload()">Upload</button>
 </div>
 
+<div class="gallery" id="gallery"></div>
+
 <script>
-const listEl = document.getElementById("galleryList");
-const modal = document.getElementById("modal");
+let username = location.pathname.split("/")[2];
+const galleryEl = document.getElementById("gallery");
+const titleEl = document.getElementById("title");
 
-/* ---------- LOAD GALLERIES ---------- */
-async function loadGalleries() {
-  listEl.innerHTML = "";
-  const res = await fetch("/api/galleries");
-  const users = await res.json();
+document.getElementById("backBtn").onclick = () => window.location.href="/";
 
-  users.forEach(u => {
-    const div = document.createElement("div");
-    div.className = "gallery-card";
-    div.textContent = u.title;
-    div.onclick = () => {
-      window.location.href = `/galleries/${u.username}/`;
-    };
-    listEl.appendChild(div);
-  });
+/* ---------- UPLOAD ---------- */
+async function upload() {
+  const files = document.getElementById("files").files;
+  if (!files.length) return alert("Select files");
+
+  const fd = new FormData();
+  for (let f of files) fd.append("files", f);
+
+  try {
+    const res = await fetch(`/api/upload/${username}`, { method: "POST", body: fd });
+    const data = await res.json();
+    if (data.error) return alert("Upload failed: " + data.error);
+    loadGallery(); // reload after upload
+  } catch (err) {
+    alert("Upload failed — check console");
+    console.error(err);
+  }
 }
 
-/* ---------- MODAL CONTROLS ---------- */
-document.getElementById("createBtn").onclick = () => {
-  modal.style.display = "flex";
-};
+/* ---------- LOAD GALLERY ---------- */
+async function loadGallery() {
+  try {
+    const res = await fetch(`/galleries/${username}/gallery.json`);
+    const data = await res.json();
+    document.body.style.background = data.bg_color;
+    document.body.style.color = data.text_color;
+    titleEl.textContent = data.title;
 
-modal.onclick = () => {
-  modal.style.display = "none";
-};
-
-/* ---------- CREATE ---------- */
-async function createGallery() {
-  const username = document.getElementById("name").value.trim().toLowerCase().replace(/\s+/g,"");
-  const title = document.getElementById("name").value.trim();
-  const bg = document.getElementById("bg").value;
-  const text = document.getElementById("text").value;
-
-  if (!title) return alert("Name required");
-
-  const res = await fetch("/api/create", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, title, bg, text })
-  });
-
-  const data = await res.json();
-  if (data.error) return alert(data.error);
-
-  modal.style.display = "none";
-  loadGalleries();
+    galleryEl.innerHTML = "";
+    data.items.sort((a,b)=>a.batch-b.batch||a.seq-b.seq)
+      .forEach(i => {
+        const el = document.createElement(i.type==="video"?"video":"img");
+        el.src = "media/" + i.stored;
+        if (i.type==="video"){ el.controls=true; el.playsInline=true; }
+        galleryEl.appendChild(el);
+      });
+  } catch(err) {
+    console.error(err);
+    galleryEl.innerHTML="<p>Unable to load gallery</p>";
+  }
 }
 
-loadGalleries();
+loadGallery();
 </script>
-
 </body>
 </html>
