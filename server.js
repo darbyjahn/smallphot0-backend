@@ -2,7 +2,7 @@ const express = require("express");
 const fileUpload = require("express-fileupload");
 const fs = require("fs");
 const path = require("path");
-const { exec } = require("child_process");
+const { spawn } = require("child_process");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -141,7 +141,6 @@ app.post("/api/upload/:user", async (req, res) => {
       return res.status(400).json({ error: "No files uploaded" });
 
     const user = req.params.user;
-
     const base = path.join(__dirname, "public", "galleries", user);
     const mediaDir = path.join(base, "media");
     const galleryFile = path.join(base, "gallery.json");
@@ -150,7 +149,6 @@ app.post("/api/upload/:user", async (req, res) => {
       return res.status(404).json({ error: "Gallery not found" });
 
     const gallery = JSON.parse(fs.readFileSync(galleryFile));
-
     const uploadList = Array.isArray(req.files.files)
       ? req.files.files
       : [req.files.files];
@@ -159,7 +157,6 @@ app.post("/api/upload/:user", async (req, res) => {
 
     for (let i = 0; i < uploadList.length; i++) {
       const file = uploadList[i];
-
       const ext = path.extname(file.name).toLowerCase();
       const safeName = `${batch}_${i}${ext}`;
       const outPath = path.join(mediaDir, safeName);
@@ -168,60 +165,53 @@ app.post("/api/upload/:user", async (req, res) => {
 
       const isVideo = [".avi", ".mov", ".mp4", ".mkv"].includes(ext);
 
-      gallery.items.push({
-        stored: safeName,
-        batch,
-        seq: i,
-        type: isVideo ? "video" : "image"
-      });
+      let storedName = safeName;
 
-      /* ========== VIDEO CONVERSION PIPELINE ========== */
+      // Convert video to MP4 & lower bitrate
       if (isVideo) {
-
         const mp4Name = `${batch}_${i}_web.mp4`;
         const mp4Path = path.join(mediaDir, mp4Name);
 
         await new Promise((resolve, reject) => {
+          const ffmpeg = spawn("ffmpeg", [
+            "-i", outPath,
+            "-vf", "scale='min(1280,iw)':'-2'",
+            "-c:v", "libx264",
+            "-preset", "veryfast",
+            "-crf", "28",
+            "-b:v", "1200k",
+            "-maxrate", "1500k",
+            "-bufsize", "2000k",
+            "-movflags", "+faststart",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            mp4Path
+          ]);
 
-          const cmd = `
-            ffmpeg -i "${outPath}" \
-            -vf "scale='min(1280,iw)':'-2'" \
-            -c:v libx264 \
-            -preset veryfast \
-            -crf 28 \
-            -b:v 1200k \
-            -maxrate 1500k \
-            -bufsize 2000k \
-            -movflags +faststart \
-            -c:a aac \
-            -b:a 128k \
-            "${mp4Path}"
-          `;
+          ffmpeg.stderr.on("data", (data) => console.log("FFmpeg:", data.toString()));
 
-          exec(cmd, (err) => {
-            if (err) {
-              console.error("FFMPEG ERROR:", err);
-              return reject(err);
+          ffmpeg.on("close", (code) => {
+            if (code === 0) {
+              fs.unlinkSync(outPath); // delete original
+              storedName = mp4Name;
+              resolve();
+            } else {
+              reject(new Error("FFmpeg failed with code " + code));
             }
-
-            // delete original huge file
-            fs.unlinkSync(outPath);
-
-            // update to new mp4 name
-            gallery.items[gallery.items.length - 1].stored = mp4Name;
-            gallery.items[gallery.items.length - 1].type = "video";
-
-            resolve();
           });
         });
       }
-      /* =============================================== */
+
+      gallery.items.push({
+        stored: storedName,
+        batch,
+        seq: i,
+        type: isVideo ? "video" : "image"
+      });
     }
 
     fs.writeFileSync(galleryFile, JSON.stringify(gallery, null, 2));
-
     res.json({ success: true });
-
   } catch (err) {
     console.error("❌ UPLOAD FAILED:", err);
     res.status(500).json({ error: "Upload failed" });
