@@ -11,10 +11,8 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(fileUpload());
 
-// Serve normal site
+// Serve site
 app.use(express.static(path.join(__dirname, "public")));
-
-// 👉 THIS IS THE MISSING LINE
 app.use("/galleries", express.static(path.join(__dirname, "public", "galleries")));
 
 /* ---------- ROOT ---------- */
@@ -29,7 +27,6 @@ if (!fs.existsSync(GALLERIES_FILE)) {
   fs.writeFileSync(GALLERIES_FILE, JSON.stringify({ users: [] }, null, 2));
 }
 
-/* ---------- HELPERS ---------- */
 const loadGalleries = () =>
   JSON.parse(fs.readFileSync(GALLERIES_FILE, "utf8"));
 
@@ -95,7 +92,7 @@ app.post("/api/create", (req, res) => {
 });
 
 /* =========================================================
-   DIRECT NAV FIX → /galleries/username
+   DIRECT NAV
    ========================================================= */
 app.get("/galleries/:user", (req, res) => {
   const file = path.join(
@@ -136,7 +133,7 @@ app.delete("/api/delete/:user", (req, res) => {
 });
 
 /* =========================================================
-   UPLOAD MEDIA — MULTI FILE WORKING
+   UPLOAD MEDIA WITH VIDEO OPTIMIZATION
    ========================================================= */
 app.post("/api/upload/:user", async (req, res) => {
   try {
@@ -169,31 +166,62 @@ app.post("/api/upload/:user", async (req, res) => {
 
       await file.mv(outPath);
 
-      const type = [".mp4", ".mov", ".webm"].includes(ext)
-        ? "video"
-        : "image";
+      const isVideo = [".avi", ".mov", ".mp4", ".mkv"].includes(ext);
 
       gallery.items.push({
         stored: safeName,
         batch,
         seq: i,
-        type
+        type: isVideo ? "video" : "image"
       });
 
-      // AVI → MP4 auto convert
-      if (ext === ".avi") {
-        const mp4 = safeName.replace(".avi", ".mp4");
+      /* ========== VIDEO CONVERSION PIPELINE ========== */
+      if (isVideo) {
 
-        exec(
-          `ffmpeg -i "${outPath}" "${path.join(mediaDir, mp4)}"`,
-          () => fs.unlinkSync(outPath)
-        );
+        const mp4Name = `${batch}_${i}_web.mp4`;
+        const mp4Path = path.join(mediaDir, mp4Name);
+
+        await new Promise((resolve, reject) => {
+
+          const cmd = `
+            ffmpeg -i "${outPath}" \
+            -vf "scale='min(1280,iw)':'-2'" \
+            -c:v libx264 \
+            -preset veryfast \
+            -crf 28 \
+            -b:v 1200k \
+            -maxrate 1500k \
+            -bufsize 2000k \
+            -movflags +faststart \
+            -c:a aac \
+            -b:a 128k \
+            "${mp4Path}"
+          `;
+
+          exec(cmd, (err) => {
+            if (err) {
+              console.error("FFMPEG ERROR:", err);
+              return reject(err);
+            }
+
+            // delete original huge file
+            fs.unlinkSync(outPath);
+
+            // update to new mp4 name
+            gallery.items[gallery.items.length - 1].stored = mp4Name;
+            gallery.items[gallery.items.length - 1].type = "video";
+
+            resolve();
+          });
+        });
       }
+      /* =============================================== */
     }
 
     fs.writeFileSync(galleryFile, JSON.stringify(gallery, null, 2));
 
     res.json({ success: true });
+
   } catch (err) {
     console.error("❌ UPLOAD FAILED:", err);
     res.status(500).json({ error: "Upload failed" });
