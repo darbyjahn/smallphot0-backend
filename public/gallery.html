@@ -42,6 +42,29 @@
 @media (max-width: 700px) {
   .arrow { display: none; }
 }
+
+/* ===== PROGRESS BAR ===== */
+#progressWrap {
+  width: 100%;
+  max-width: 420px;
+  background: #eee;
+  border-radius: 8px;
+  margin-top: 10px;
+  display: none;
+}
+
+#progressBar {
+  width: 0%;
+  height: 12px;
+  background: #4caf50;
+  border-radius: 8px;
+  transition: width .2s ease;
+}
+
+#progressText {
+  font-size: 12px;
+  margin-top: 4px;
+}
 </style>
 
 </head>
@@ -58,6 +81,11 @@
 <div class="upload">
   <input type="file" id="files" multiple name="files">
   <button onclick="upload()">Upload</button>
+
+  <div id="progressWrap">
+    <div id="progressBar"></div>
+  </div>
+  <div id="progressText"></div>
 </div>
 
 <div class="gallery" id="gallery"></div>
@@ -79,6 +107,10 @@ const lightbox = document.getElementById("lightbox");
 const content = document.getElementById("lightbox-content");
 const prev = document.getElementById("prev");
 const next = document.getElementById("next");
+
+const progressWrap = document.getElementById("progressWrap");
+const progressBar = document.getElementById("progressBar");
+const progressText = document.getElementById("progressText");
 
 let media = [];
 let index = 0;
@@ -118,32 +150,54 @@ document.getElementById("deleteBtn").onclick = async () => {
   }
 };
 
-/* ===== UPLOAD ===== */
+/* ===== UPLOAD WITH PROGRESS ===== */
 
-async function upload() {
+function upload() {
   const files = document.getElementById("files").files;
   if (!files.length) return alert("Select files");
 
   const fd = new FormData();
   for (let f of files) fd.append("files", f);
 
-  try {
-    const res = await fetch(`/api/upload/${username}`, {
-      method: "POST",
-      body: fd
-    });
+  const xhr = new XMLHttpRequest();
 
-    const data = await res.json();
+  xhr.open("POST", `/api/upload/${username}`);
 
-    if (data.error)
-      return alert("Upload failed: " + data.error);
+  progressWrap.style.display = "block";
+  progressBar.style.width = "0%";
+  progressText.textContent = "Starting upload...";
+
+  xhr.upload.onprogress = e => {
+    if (e.lengthComputable) {
+      const pct = Math.round((e.loaded / e.total) * 100);
+      progressBar.style.width = pct + "%";
+      progressText.textContent = `Uploading: ${pct}%`;
+    }
+  };
+
+  xhr.onload = () => {
+    if (xhr.status !== 200) {
+      progressText.textContent = "Upload failed";
+      return alert("Upload failed");
+    }
+
+    progressBar.style.width = "100%";
+    progressText.textContent = "Processing complete ✅";
+
+    setTimeout(() => {
+      progressWrap.style.display = "none";
+      progressText.textContent = "";
+    }, 1200);
 
     loadGallery();
+  };
 
-  } catch (err) {
+  xhr.onerror = () => {
+    progressText.textContent = "Upload error";
     alert("Upload failed — check console");
-    console.error(err);
-  }
+  };
+
+  xhr.send(fd);
 }
 
 /* ===== LIGHTBOX CORE ===== */
@@ -166,12 +220,11 @@ function show(i) {
     el.src = f.src;
 
     el.controls = true;
-    el.muted = true;       // mobile chrome rule
+    el.muted = true;
     el.autoplay = true;
     el.playsInline = true;
   }
 
-  // TAP LEFT/RIGHT ON MOBILE
   if (isTouch) {
     el.addEventListener("pointerup", e => {
       e.stopPropagation();
@@ -203,6 +256,7 @@ async function loadGallery() {
 
     const data = await res.json();
 
+    /* COLORS NOW APPLIED TO INDIVIDUAL PAGE */
     document.body.style.background = data.bg_color;
     document.body.style.color = data.text_color;
 
@@ -210,7 +264,6 @@ async function loadGallery() {
 
     galleryEl.innerHTML = "";
 
-    // convert to lightbox format
     media = data.items
       .sort((a,b)=>a.batch-b.batch || a.seq-b.seq)
       .map(i => ({
