@@ -1,5 +1,5 @@
 const express = require("express");
-const fileUpload = require("express-fileupload");
+const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
@@ -8,60 +8,83 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 /* =========================================================
-   PERSISTENT DISK PATH
+   PERSISTENT DISK PATHS
    ========================================================= */
 
-const DATA_PATH = "/var/data";               // Render disk mount
+const DATA_PATH = "/var/data";
 const GALLERIES_PATH = path.join(DATA_PATH, "galleries");
 const GALLERIES_FILE = path.join(DATA_PATH, "galleries.json");
 
-/* ----- VERIFY DISK IS ACTUALLY MOUNTED ----- */
+/* ----- ENSURE DISK STRUCTURE ----- */
 try {
-  if (!fs.existsSync(DATA_PATH)) {
-    console.log("📁 Creating DATA_PATH:", DATA_PATH);
+  if (!fs.existsSync(DATA_PATH))
     fs.mkdirSync(DATA_PATH, { recursive: true });
-  }
 
-  if (!fs.existsSync(GALLERIES_PATH)) {
-    console.log("📁 Creating galleries folder");
+  if (!fs.existsSync(GALLERIES_PATH))
     fs.mkdirSync(GALLERIES_PATH, { recursive: true });
-  }
 
-  if (!fs.existsSync(GALLERIES_FILE)) {
-    console.log("🧾 Creating galleries.json index");
+  if (!fs.existsSync(GALLERIES_FILE))
     fs.writeFileSync(
       GALLERIES_FILE,
       JSON.stringify({ users: [] }, null, 2)
     );
-  }
 
 } catch (e) {
   console.error("🚨 DISK NOT WRITABLE:", e);
 }
 
 /* =========================================================
+   MULTER STREAMING UPLOAD (NO RAM BUFFER!)
+   ========================================================= */
+
+const storage = multer.diskStorage({
+
+  destination: (req, file, cb) => {
+    const dir = path.join(GALLERIES_PATH, req.params.user, "media");
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const safe =
+      Date.now() +
+      "_" +
+      Math.random().toString(36).slice(2) +
+      ext;
+
+    cb(null, safe);
+  }
+});
+
+const upload = multer({
+  storage,
+
+  limits: {
+    fileSize: 1024 * 1024 * 300 // 300MB per file
+  }
+});
+
+/* =========================================================
    MIDDLEWARE
    ========================================================= */
 
 app.use(express.json());
-app.use(fileUpload());
 
 app.use(express.static(path.join(__dirname, "public")));
 
-/* 👉 THIS IS THE CRITICAL LINE – SERVE FROM DISK */
+/* 👉 SERVE FROM DISK */
 app.use("/galleries", express.static(GALLERIES_PATH));
 
 /* =========================================================
    HELPERS
    ========================================================= */
 
-const loadGalleries = () => {
-  return JSON.parse(fs.readFileSync(GALLERIES_FILE, "utf8"));
-};
+const loadGalleries = () =>
+  JSON.parse(fs.readFileSync(GALLERIES_FILE, "utf8"));
 
-const saveGalleries = (d) => {
+const saveGalleries = (d) =>
   fs.writeFileSync(GALLERIES_FILE, JSON.stringify(d, null, 2));
-};
 
 function ensureGalleryExists(
   username,
@@ -75,7 +98,6 @@ function ensureGalleryExists(
   const mediaDir = path.join(base, "media");
 
   if (!fs.existsSync(base)) {
-    console.log("🆕 Creating gallery:", username);
 
     fs.mkdirSync(mediaDir, { recursive: true });
 
@@ -88,7 +110,6 @@ function ensureGalleryExists(
       )
     );
 
-    /* copy template viewer */
     fs.copyFileSync(
       path.join(__dirname, "public", "gallery.html"),
       path.join(base, "index.html")
@@ -102,7 +123,69 @@ function ensureGalleryExists(
 }
 
 /* =========================================================
-   API ENDPOINTS
+   BACKGROUND VIDEO CONVERSION
+   ========================================================= */
+
+function convertVideoAsync(user, filename) {
+
+  const mediaDir =
+    path.join(GALLERIES_PATH, user, "media");
+
+  const input = path.join(mediaDir, filename);
+
+  const output = path.join(
+    mediaDir,
+    filename.replace(/\.\w+$/, "_web.mp4")
+  );
+
+  console.log("🎬 START CONVERT:", filename);
+
+  const cmd =
+    `ffmpeg -i "${input}" ` +
+    `-vf "scale='min(1280,iw)':'-2'" ` +
+    `-c:v libx264 -preset veryfast -crf 28 ` +
+    `-b:v 1200k -movflags +faststart ` +
+    `-c:a aac -b:a 128k "${output}"`;
+
+  exec(cmd, (err) => {
+
+    const galleryFile =
+      path.join(GALLERIES_PATH, user, "gallery.json");
+
+    let gallery =
+      JSON.parse(fs.readFileSync(galleryFile));
+
+    const item =
+      gallery.items.find(i => i.stored === filename);
+
+    if (!item) return;
+
+    if (err) {
+      console.error("❌ FFMPEG FAIL:", err);
+      item.processing = "failed";
+
+    } else {
+
+      try {
+        fs.unlinkSync(input);
+      } catch {}
+
+      item.stored = path.basename(output);
+      item.processing = false;
+      item.type = "video";
+
+      console.log("✅ CONVERT DONE:", output);
+    }
+
+    fs.writeFileSync(
+      galleryFile,
+      JSON.stringify(gallery, null, 2)
+    );
+  });
+}
+
+/* =========================================================
+   API
    ========================================================= */
 
 app.get("/api/galleries", (req, res) => {
@@ -110,6 +193,7 @@ app.get("/api/galleries", (req, res) => {
 });
 
 app.post("/api/create", (req, res) => {
+
   const { username, title, bg, text } = req.body;
 
   if (!username || !title)
@@ -121,6 +205,7 @@ app.post("/api/create", (req, res) => {
 });
 
 app.delete("/api/delete/:user", (req, res) => {
+
   const base = path.join(GALLERIES_PATH, req.params.user);
 
   if (!fs.existsSync(base))
@@ -129,9 +214,9 @@ app.delete("/api/delete/:user", (req, res) => {
   fs.rmSync(base, { recursive: true, force: true });
 
   const data = loadGalleries();
-  data.users = data.users.filter(
-    (u) => u.username !== req.params.user
-  );
+
+  data.users =
+    data.users.filter(u => u.username !== req.params.user);
 
   saveGalleries(data);
 
@@ -139,101 +224,66 @@ app.delete("/api/delete/:user", (req, res) => {
 });
 
 /* =========================================================
-   UPLOAD
+   UPLOAD – STREAM TO DISK FIRST
    ========================================================= */
 
-app.post("/api/upload/:user", async (req, res) => {
-  try {
-    if (!req.files)
-      return res.status(400).json({ error: "No files uploaded" });
+app.post(
+  "/api/upload/:user",
+  upload.array("files"),
+  async (req, res) => {
 
-    const user = req.params.user;
+    try {
 
-    console.log("📤 Upload to gallery:", user);
+      const user = req.params.user;
 
-    ensureGalleryExists(user, user);
+      ensureGalleryExists(user, user);
 
-    const base = path.join(GALLERIES_PATH, user);
-    const mediaDir = path.join(base, "media");
-    const galleryFile = path.join(base, "gallery.json");
+      const base = path.join(GALLERIES_PATH, user);
+      const galleryFile =
+        path.join(base, "gallery.json");
 
-    const uploadList = Array.isArray(req.files.files)
-      ? req.files.files
-      : [req.files.files];
+      let gallery =
+        JSON.parse(fs.readFileSync(galleryFile));
 
-    const batch = Date.now();
+      const batch = Date.now();
 
-    for (let i = 0; i < uploadList.length; i++) {
-      const gallery = JSON.parse(
-        fs.readFileSync(galleryFile)
-      );
+      for (let i = 0; i < req.files.length; i++) {
 
-      const file = uploadList[i];
-      const ext = path.extname(file.name).toLowerCase();
+        const file = req.files[i];
+        const ext =
+          path.extname(file.filename).toLowerCase();
 
-      const safeName = `${batch}_${i}${ext}`;
-      const outPath = path.join(mediaDir, safeName);
+        const isVideo =
+          [".avi", ".mov", ".mp4", ".mkv"]
+            .includes(ext);
 
-      console.log("💾 Saving:", safeName);
-
-      await file.mv(outPath);
-
-      const isVideo = [".avi", ".mov", ".mp4", ".mkv"].includes(ext);
-
-      gallery.items.push({
-        stored: safeName,
-        batch,
-        seq: i,
-        type: isVideo ? "video" : "image",
-      });
-
-      /* ---------- VIDEO CONVERT ---------- */
-      if (isVideo) {
-        const mp4Name = `${batch}_${i}_web.mp4`;
-        const mp4Path = path.join(mediaDir, mp4Name);
-
-        console.log("🎬 Converting video:", safeName);
-
-        await new Promise((ok, fail) => {
-          const cmd =
-            `ffmpeg -i "${outPath}" ` +
-            `-vf "scale='min(1280,iw)':'-2'" ` +
-            `-c:v libx264 -preset veryfast -crf 28 ` +
-            `-b:v 1200k -movflags +faststart ` +
-            `-c:a aac -b:a 128k "${mp4Path}"`;
-
-          exec(cmd, (err) => {
-            if (err) {
-              console.error("FFMPEG FAIL:", err);
-              return fail(err);
-            }
-
-            fs.unlinkSync(outPath);
-
-            const last =
-              gallery.items[gallery.items.length - 1];
-
-            last.stored = mp4Name;
-            last.type = "video";
-
-            ok();
-          });
+        gallery.items.push({
+          stored: file.filename,
+          batch,
+          seq: i,
+          type: isVideo ? "video" : "image",
+          processing: isVideo
         });
+
+        if (isVideo)
+          convertVideoAsync(user, file.filename);
       }
 
       fs.writeFileSync(
         galleryFile,
         JSON.stringify(gallery, null, 2)
       );
+
+      res.json({ success: true });
+
+    } catch (err) {
+      console.error("❌ UPLOAD ERROR:", err);
+
+      res.status(500)
+        .json({ error: "Upload failed" });
     }
-
-    res.json({ success: true });
-
-  } catch (err) {
-    console.error("❌ UPLOAD ERROR:", err);
-    res.status(500).json({ error: "Upload failed" });
   }
-});
+);
 
 /* =========================================================
    START
