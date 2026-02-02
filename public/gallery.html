@@ -7,7 +7,6 @@
 <link rel="stylesheet" href="/styles.css">
 
 <style>
-/* ===== LIGHTBOX STYLES ===== */
 #lightbox {
   display: none;
   position: fixed;
@@ -43,7 +42,6 @@
   .arrow { display: none; }
 }
 
-/* ===== PROGRESS BAR ===== */
 #progressWrap {
   width: 100%;
   max-width: 420px;
@@ -90,7 +88,6 @@
 
 <div class="gallery" id="gallery"></div>
 
-<!-- ===== LIGHTBOX ===== -->
 <div id="lightbox">
   <div id="prev" class="arrow">&#10094;</div>
   <div id="lightbox-content"></div>
@@ -119,7 +116,7 @@ const isTouch =
   "ontouchstart" in window ||
   navigator.maxTouchPoints > 0;
 
-/* ===== BACK + DELETE ===== */
+/* ===== NAV ===== */
 
 document.getElementById("backBtn").onclick =
   () => window.location.href="/";
@@ -150,7 +147,7 @@ document.getElementById("deleteBtn").onclick = async () => {
   }
 };
 
-/* ===== UPLOAD WITH PROGRESS ===== */
+/* ===== UPLOAD ===== */
 
 function upload() {
   const files = document.getElementById("files").files;
@@ -189,7 +186,8 @@ function upload() {
       progressText.textContent = "";
     }, 1200);
 
-    loadGallery();
+    // reload WITHOUT wiping existing until fetch succeeds
+    loadGallery(true);
   };
 
   xhr.onerror = () => {
@@ -200,7 +198,7 @@ function upload() {
   xhr.send(fd);
 }
 
-/* ===== LIGHTBOX CORE ===== */
+/* ===== LIGHTBOX ===== */
 
 function show(i) {
   index = i;
@@ -249,20 +247,20 @@ function navigate(d) {
 
 /* ===== LOAD GALLERY ===== */
 
-async function loadGallery() {
+async function loadGallery(keepDOM = false) {
   try {
     const res =
-      await fetch(`/galleries/${username}/gallery.json`);
+      await fetch(`/galleries/${username}/gallery.json?nocache=` + Date.now());
 
     const data = await res.json();
 
-    /* COLORS NOW APPLIED TO INDIVIDUAL PAGE */
-    document.body.style.background = data.bg_color;
-    document.body.style.color = data.text_color;
+    document.body.style.background = data.bg_color || "#ffffff";
+    document.body.style.color = data.text_color || "#000000";
 
-    titleEl.textContent = data.title;
+    titleEl.textContent = data.title || username;
 
-    galleryEl.innerHTML = "";
+    // only wipe when first load, not during upload refresh
+    if (!keepDOM) galleryEl.innerHTML = "";
 
     media = data.items
       .sort((a,b)=>a.batch-b.batch || a.seq-b.seq)
@@ -270,6 +268,8 @@ async function loadGallery() {
         type: i.type === "video" ? "video" : "image",
         src: "media/" + i.stored
       }));
+
+    galleryEl.innerHTML = "";
 
     media.forEach((f,i) => {
 
@@ -298,17 +298,17 @@ async function loadGallery() {
   } catch(err) {
     console.error(err);
     galleryEl.innerHTML =
-      "<p>Unable to load gallery</p>";
+      "<p>Unable to load gallery — try refreshing</p>";
   }
 }
 
-/* ===== CLOSE LIGHTBOX ===== */
+/* ===== CLOSE ===== */
 
 lightbox.addEventListener("click", e => {
   if (!content.contains(e.target)) close();
 });
 
-/* ===== DESKTOP CONTROLS ===== */
+/* ===== DESKTOP ===== */
 
 if (!isTouch) {
 
@@ -353,9 +353,7 @@ if (isTouch) {
   }, { passive: true });
 }
 
-/* ===== INIT ===== */
 loadGallery();
-
 </script>
 </body>
 </html>
