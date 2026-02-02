@@ -63,16 +63,48 @@
   font-size: 12px;
   margin-top: 4px;
 }
+
+/* ----- ONLY NEW SECTION: BUTTON STYLE + POSITION ----- */
+
+#backBtn,
+#deleteBtn {
+  position: fixed;
+  top: 16px;
+
+  background: none;
+  border: none;
+
+  font-size: 14px;
+  font-family: Arial, Helvetica, sans-serif;
+
+  cursor: pointer;
+
+  transition: transform .15s ease, opacity .15s ease;
+  opacity: .85;
+}
+
+#backBtn {
+  left: 16px;
+}
+
+#deleteBtn {
+  right: 16px;
+}
+
+#backBtn:hover,
+#deleteBtn:hover {
+  transform: scale(1.12);
+  opacity: 1;
+}
+
 </style>
 
 </head>
 <body>
 
-<button id="backBtn">⬅ Back to Galleries</button>
+<button id="backBtn">ALL GALLERIES</button>
 
-<button id="deleteBtn" style="background:#c33;color:white;margin-left:8px;">
-  🗑 Delete Gallery
-</button>
+<button id="deleteBtn">DELETE GALLERY</button>
 
 <h1 id="title"></h1>
 
@@ -124,7 +156,7 @@ document.getElementById("backBtn").onclick =
 document.getElementById("deleteBtn").onclick = async () => {
 
   const ok = confirm(
-    "⚠️ This will permanently delete this gallery and ALL its media.\n\nContinue?"
+    " !! This will permanently delete this gallery and ALL its media. Do you want to continue ?!!"
   );
 
   if (!ok) return;
@@ -186,12 +218,11 @@ function upload() {
       progressText.textContent = "";
     }, 1200);
 
-    // reload WITHOUT wiping existing until fetch succeeds
     loadGallery(true);
   };
 
   xhr.onerror = () => {
-    progressText.textContent = "Upload error";
+    progressText.textContent = "TOO LARGE (probably), try one at a time with videos";
     alert("Upload failed — check console");
   };
 
@@ -259,7 +290,6 @@ async function loadGallery(keepDOM = false) {
 
     titleEl.textContent = data.title || username;
 
-    // only wipe when first load, not during upload refresh
     if (!keepDOM) galleryEl.innerHTML = "";
 
     media = data.items
@@ -302,13 +332,9 @@ async function loadGallery(keepDOM = false) {
   }
 }
 
-/* ===== CLOSE ===== */
-
 lightbox.addEventListener("click", e => {
   if (!content.contains(e.target)) close();
 });
-
-/* ===== DESKTOP ===== */
 
 if (!isTouch) {
 
@@ -331,8 +357,6 @@ if (!isTouch) {
     if (e.key === "Escape") close();
   });
 }
-
-/* ===== MOBILE SWIPE ===== */
 
 let startX = 0;
 
