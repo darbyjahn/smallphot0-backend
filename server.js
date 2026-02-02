@@ -12,7 +12,9 @@ app.use(express.json());
 app.use(fileUpload());
 
 app.use(express.static(path.join(__dirname, "public")));
-app.use("/galleries", express.static(path.join(__dirname, "public", "galleries")));
+app.use("/galleries",
+  express.static(path.join(__dirname, "public", "galleries"))
+);
 
 /* ---------- ROOT ---------- */
 app.get("/", (req, res) => {
@@ -20,53 +22,55 @@ app.get("/", (req, res) => {
 });
 
 /* ---------- DATA FILE ---------- */
-const GALLERIES_FILE = path.join(__dirname, "galleries.json");
+const GALLERIES_FILE =
+  path.join(__dirname, "galleries.json");
 
 if (!fs.existsSync(GALLERIES_FILE)) {
-  fs.writeFileSync(GALLERIES_FILE, JSON.stringify({ users: [] }, null, 2));
+  fs.writeFileSync(
+    GALLERIES_FILE,
+    JSON.stringify({ users: [] }, null, 2)
+  );
 }
 
 const loadGalleries = () =>
   JSON.parse(fs.readFileSync(GALLERIES_FILE, "utf8"));
 
 const saveGalleries = data =>
-  fs.writeFileSync(GALLERIES_FILE, JSON.stringify(data, null, 2));
-
-
-
-/* =========================================================
-   LIST GALLERIES → HOMEPAGE USES THIS
-   ========================================================= */
-app.get("/api/galleries", (req, res) => {
-  try {
-    res.json(loadGalleries().users);
-  } catch {
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-
+  fs.writeFileSync(
+    GALLERIES_FILE,
+    JSON.stringify(data, null, 2)
+  );
 
 /* =========================================================
-   CREATE GALLERY (MANUAL)
+   ENSURE GALLERY EXISTS + COLOR SUPPORT
    ========================================================= */
-function ensureGalleryExists(username, title = username) {
+
+function ensureGalleryExists(
+  username,
+  title = username,
+  bg = "#ffffff",
+  text = "#000000"
+) {
 
   const data = loadGalleries();
 
-  const base = path.join(__dirname, "public", "galleries", username);
-  const mediaDir = path.join(base, "media");
+  const base =
+    path.join(__dirname, "public", "galleries", username);
+
+  const mediaDir =
+    path.join(base, "media");
 
   if (!fs.existsSync(base)) {
+
     fs.mkdirSync(mediaDir, { recursive: true });
 
     fs.writeFileSync(
       path.join(base, "gallery.json"),
       JSON.stringify(
         {
-          title: title,
-          bg_color: "#ffffff",
-          text_color: "#000000",
+          title,
+          bg_color: bg,
+          text_color: text,
           items: []
         },
         null,
@@ -80,157 +84,199 @@ function ensureGalleryExists(username, title = username) {
     );
   }
 
-  // 👉 CRITICAL PART — add to main list if missing
   if (!data.users.find(u => u.username === username)) {
-    data.users.push({ username, title });
+    data.users.push({ username, title, bg, text });
     saveGalleries(data);
   }
 }
 
-
+/* =========================================================
+   CREATE GALLERY WITH COLORS
+   ========================================================= */
 
 app.post("/api/create", (req, res) => {
+
   try {
-    const { username, title } = req.body;
+
+    const {
+      username,
+      title,
+      bg_color,
+      text_color
+    } = req.body;
 
     if (!username || !title)
-      return res.status(400).json({ error: "Missing fields" });
+      return res.status(400)
+        .json({ error: "Missing fields" });
 
-    ensureGalleryExists(username, title);
+    ensureGalleryExists(
+      username,
+      title,
+      bg_color,
+      text_color
+    );
 
     res.json({ success: true });
 
   } catch (err) {
+
     console.error("❌ CREATE FAILED:", err);
-    res.status(500).json({ error: "Server error" });
+
+    res.status(500)
+      .json({ error: "Server error" });
   }
 });
 
-
-
 /* =========================================================
-   DELETE GALLERY
+   SAFE GALLERY LOADER
    ========================================================= */
-app.delete("/api/delete/:user", (req, res) => {
+
+function loadGalleryFile(file) {
+
   try {
-    const base = path.join(__dirname, "public", "galleries", req.params.user);
-
-    if (!fs.existsSync(base))
-      return res.status(404).json({ error: "Gallery not found" });
-
-    fs.rmSync(base, { recursive: true, force: true });
-
-    const data = loadGalleries();
-    data.users = data.users.filter(u => u.username !== req.params.user);
-    saveGalleries(data);
-
-    res.json({ success: true });
-
+    return JSON.parse(fs.readFileSync(file));
   } catch {
-    res.status(500).json({ error: "Server error" });
+
+    return {
+      title: "Recovered Gallery",
+      bg_color: "#ffffff",
+      text_color: "#000000",
+      items: []
+    };
   }
-});
-
-
+}
 
 /* =========================================================
-   UPLOAD MEDIA WITH AUTO-CREATE + VIDEO CONVERT
+   UPLOAD — APPEND ONLY + ATOMIC VIDEO
    ========================================================= */
+
 app.post("/api/upload/:user", async (req, res) => {
+
   try {
 
     if (!req.files || !req.files.files)
-      return res.status(400).json({ error: "No files uploaded" });
+      return res.status(400)
+        .json({ error: "No files uploaded" });
 
     const user = req.params.user;
 
-    // 👉 THIS FIXES YOUR HOMEPAGE PROBLEM
     ensureGalleryExists(user, user);
 
-    const base = path.join(__dirname, "public", "galleries", user);
-    const mediaDir = path.join(base, "media");
-    const galleryFile = path.join(base, "gallery.json");
+    const base =
+      path.join(__dirname, "public", "galleries", user);
 
-    const gallery = JSON.parse(fs.readFileSync(galleryFile));
+    const mediaDir =
+      path.join(base, "media");
 
-    const uploadList = Array.isArray(req.files.files)
-      ? req.files.files
-      : [req.files.files];
+    const galleryFile =
+      path.join(base, "gallery.json");
+
+    const gallery =
+      loadGalleryFile(galleryFile);
+
+    const uploadList =
+      Array.isArray(req.files.files)
+        ? req.files.files
+        : [req.files.files];
 
     const batch = Date.now();
 
+    let seq = 0;
 
+    for (let file of uploadList) {
 
-    for (let i = 0; i < uploadList.length; i++) {
+      const ext =
+        path.extname(file.name).toLowerCase();
 
-      const file = uploadList[i];
-      const ext = path.extname(file.name).toLowerCase();
+      const tempName =
+        `${batch}_${seq}_temp${ext}`;
 
-      const safeName = `${batch}_${i}${ext}`;
-      const outPath = path.join(mediaDir, safeName);
+      const finalName =
+        `${batch}_${seq}${ext}`;
 
-      await file.mv(outPath);
+      const tempPath =
+        path.join(mediaDir, tempName);
 
-      const isVideo = [".avi", ".mov", ".mp4", ".mkv"].includes(ext);
+      const finalPath =
+        path.join(mediaDir, finalName);
 
-      gallery.items.push({
-        stored: safeName,
-        batch,
-        seq: i,
-        type: isVideo ? "video" : "image"
-      });
+      await file.mv(tempPath);
 
+      const isVideo =
+        [".avi",".mov",".mp4",".mkv"]
+          .includes(ext);
 
+      /* ---------- VIDEO ---------- */
 
-      /* ========== VIDEO CONVERSION ========== */
       if (isVideo) {
 
-        const mp4Name = `${batch}_${i}_web.mp4`;
-        const mp4Path = path.join(mediaDir, mp4Name);
+        const mp4Name =
+          `${batch}_${seq}_web.mp4`;
 
-        await new Promise((resolve, reject) => {
+        const mp4Path =
+          path.join(mediaDir, mp4Name);
+
+        await new Promise((resolve,reject)=>{
 
           const cmd = `
-            ffmpeg -i "${outPath}" \
-            -vf "scale='min(1280,iw)':'-2'" \
-            -c:v libx264 \
-            -preset veryfast \
-            -crf 28 \
-            -b:v 1200k \
-            -movflags +faststart \
-            -c:a aac \
-            -b:a 128k \
-            "${mp4Path}"
-          `;
+ffmpeg -i "${tempPath}" \
+-vf "scale='min(1280,iw)':'-2'" \
+-c:v libx264 -preset veryfast -crf 28 \
+-b:v 1200k -movflags +faststart \
+-c:a aac -b:a 128k \
+"${mp4Path}"
+`;
 
-          exec(cmd, (err) => {
+          exec(cmd,(err)=>{
+
             if (err) return reject(err);
 
-            fs.unlinkSync(outPath);
+            fs.unlinkSync(tempPath);
 
-            gallery.items[gallery.items.length - 1].stored = mp4Name;
-            gallery.items[gallery.items.length - 1].type = "video";
+            gallery.items.push({
+              stored: mp4Name,
+              batch,
+              seq,
+              type: "video"
+            });
 
             resolve();
           });
         });
+
+      } else {
+
+        fs.renameSync(tempPath, finalPath);
+
+        gallery.items.push({
+          stored: finalName,
+          batch,
+          seq,
+          type: "image"
+        });
       }
+
+      seq++;
     }
 
-
-
-    fs.writeFileSync(galleryFile, JSON.stringify(gallery, null, 2));
+    fs.writeFileSync(
+      galleryFile,
+      JSON.stringify(gallery, null, 2)
+    );
 
     res.json({ success: true });
 
   } catch (err) {
+
     console.error("❌ UPLOAD FAILED:", err);
-    res.status(500).json({ error: "Upload failed" });
+
+    res.status(500)
+      .json({ error: "Upload failed" });
   }
 });
 
-
+/* ========================================================= */
 
 app.listen(PORT, () =>
-  console.log(`✅ SmallPhotos running on port ${PORT}`)
+  console.log(`✅ SmallPhotos running on ${PORT}`)
 );
