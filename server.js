@@ -1,5 +1,5 @@
 const express = require("express");
-const multer = require("multer");
+const fileUpload = require("express-fileupload");
 const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
@@ -34,42 +34,18 @@ try {
 }
 
 /* =========================================================
-   MULTER STREAMING UPLOAD (NO RAM BUFFER!)
-   ========================================================= */
-
-const storage = multer.diskStorage({
-
-  destination: (req, file, cb) => {
-    const dir = path.join(GALLERIES_PATH, req.params.user, "media");
-    fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const safe =
-      Date.now() +
-      "_" +
-      Math.random().toString(36).slice(2) +
-      ext;
-
-    cb(null, safe);
-  }
-});
-
-const upload = multer({
-  storage,
-
-  limits: {
-    fileSize: 1024 * 1024 * 300 // 300MB per file
-  }
-});
-
-/* =========================================================
    MIDDLEWARE
    ========================================================= */
 
 app.use(express.json());
+
+app.use(
+  fileUpload({
+    useTempFiles: true,
+    tempFileDir: "/tmp/",
+    limits: { fileSize: 1024 * 1024 * 300 } // 300MB
+  })
+);
 
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -224,66 +200,82 @@ app.delete("/api/delete/:user", (req, res) => {
 });
 
 /* =========================================================
-   UPLOAD – STREAM TO DISK FIRST
+   UPLOAD – EXPRESS-FILEUPLOAD VERSION
    ========================================================= */
 
-app.post(
-  "/api/upload/:user",
-  upload.array("files"),
-  async (req, res) => {
+app.post("/api/upload/:user", async (req, res) => {
 
-    try {
+  try {
 
-      const user = req.params.user;
+    const user = req.params.user;
 
-      ensureGalleryExists(user, user);
+    ensureGalleryExists(user, user);
 
-      const base = path.join(GALLERIES_PATH, user);
-      const galleryFile =
-        path.join(base, "gallery.json");
+    if (!req.files)
+      return res.status(400).json({ error: "No files" });
 
-      let gallery =
-        JSON.parse(fs.readFileSync(galleryFile));
+    const files = Array.isArray(req.files.files)
+      ? req.files.files
+      : [req.files.files];
 
-      const batch = Date.now();
+    const base = path.join(GALLERIES_PATH, user);
+    const mediaDir = path.join(base, "media");
+    const galleryFile = path.join(base, "gallery.json");
 
-      for (let i = 0; i < req.files.length; i++) {
+    fs.mkdirSync(mediaDir, { recursive: true });
 
-        const file = req.files[i];
-        const ext =
-          path.extname(file.filename).toLowerCase();
+    let gallery =
+      JSON.parse(fs.readFileSync(galleryFile));
 
-        const isVideo =
-          [".avi", ".mov", ".mp4", ".mkv"]
-            .includes(ext);
+    const batch = Date.now();
 
-        gallery.items.push({
-          stored: file.filename,
-          batch,
-          seq: i,
-          type: isVideo ? "video" : "image",
-          processing: isVideo
-        });
+    for (let i = 0; i < files.length; i++) {
 
-        if (isVideo)
-          convertVideoAsync(user, file.filename);
-      }
+      const file = files[i];
 
-      fs.writeFileSync(
-        galleryFile,
-        JSON.stringify(gallery, null, 2)
-      );
+      const ext =
+        path.extname(file.name).toLowerCase();
 
-      res.json({ success: true });
+      const safe =
+        Date.now() +
+        "_" +
+        Math.random().toString(36).slice(2) +
+        ext;
 
-    } catch (err) {
-      console.error("❌ UPLOAD ERROR:", err);
+      const dest = path.join(mediaDir, safe);
 
-      res.status(500)
-        .json({ error: "Upload failed" });
+      await file.mv(dest);
+
+      const isVideo =
+        [".avi", ".mov", ".mp4", ".mkv"]
+          .includes(ext);
+
+      gallery.items.push({
+        stored: safe,
+        batch,
+        seq: i,
+        type: isVideo ? "video" : "image",
+        processing: isVideo
+      });
+
+      if (isVideo)
+        convertVideoAsync(user, safe);
     }
+
+    fs.writeFileSync(
+      galleryFile,
+      JSON.stringify(gallery, null, 2)
+    );
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error("❌ UPLOAD ERROR:", err);
+
+    res.status(500)
+      .json({ error: "Upload failed" });
   }
-);
+});
 
 /* =========================================================
    START
