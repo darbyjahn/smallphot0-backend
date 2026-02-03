@@ -2,25 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gallery</title>
 <link rel="stylesheet" href="/styles.css">
 
 <style>
-/* ===== PAGE LAYOUT ===== */
-
 body {
   margin: 0;
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* ===== HEADER ===== */
+
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  flex-wrap: wrap;
+  padding: 10px;
 }
 
 .header button {
@@ -28,28 +26,26 @@ body {
   border: none;
   font-size: 13px;
   cursor: pointer;
-  opacity: .85;
+  transition: opacity .2s;
+}
+
+/* 👉 HOVER EFFECT BACK */
+.header button:hover {
+  opacity: .5;
 }
 
 #title {
   text-align: center;
-  margin: 6px 0 12px 0;
-  width: 100%;
+  margin: 5px 0 10px 0;
 }
 
-/* ===== GALLERY GRID ===== */
+/* ===== GRID ===== */
 
 .gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
   gap: 8px;
-  padding: 8px;
-}
-
-@media (min-width: 800px) {
-  .gallery {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  }
+  padding: 10px;
 }
 
 .gallery img,
@@ -58,26 +54,17 @@ body {
   height: 100%;
   object-fit: cover;
   border-radius: 6px;
-
-  touch-action: pan-y;
-  -webkit-user-drag: none;
-
-  background: #111;
-  min-height: 100px;
+  cursor: pointer;
 }
 
-/* ===== DRAG VISUALS ===== */
+/* ===== DRAG CLASSES ===== */
 
-.drag-ghost {
-  opacity: .25;
+.sortable-ghost {
+  opacity: .3;
 }
 
-.drag-chosen {
-  transform: scale(1.04);
-}
-
-.drag-dragging {
-  cursor: grabbing;
+.sortable-chosen {
+  transform: scale(1.03);
 }
 
 /* ===== LIGHTBOX ===== */
@@ -94,40 +81,31 @@ body {
 
 #lightbox-content img,
 #lightbox-content video {
-  max-width: 94vw;
-  max-height: 92vh;
-  object-fit: contain;
-  border-radius: 8px;
+  max-width: 90vw;
+  max-height: 90vh;
 }
+
+/* NAV ARROWS */
+.nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: white;
+  font-size: 30px;
+  cursor: pointer;
+  user-select: none;
+}
+
+#prev { left: 10px; }
+#next { right: 10px; }
 
 #deleteItemBtn {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 10px;
+  right: 10px;
   background: none;
   border: none;
   color: white;
-  font-size: 14px;
-}
-
-/* ===== UPLOAD ===== */
-
-.upload {
-  padding: 0 12px 10px 12px;
-}
-
-#progressWrap {
-  margin-top: 6px;
-  background: #eee;
-  border-radius: 6px;
-  display: none;
-}
-
-#progressBar {
-  height: 10px;
-  background: #4caf50;
-  width: 0%;
-  border-radius: 6px;
 }
 </style>
 </head>
@@ -144,16 +122,16 @@ body {
 <div class="upload">
   <input type="file" id="files" multiple>
   <button onclick="upload()">Upload</button>
-
-  <div id="progressWrap">
-    <div id="progressBar"></div>
-  </div>
-  <div id="progressText"></div>
 </div>
 
 <div class="gallery" id="gallery"></div>
 
+<!-- ===== LIGHTBOX ===== -->
+
 <div id="lightbox">
+  <div id="prev" class="nav">‹</div>
+  <div id="next" class="nav">›</div>
+
   <button id="deleteItemBtn">DELETE</button>
   <div id="lightbox-content"></div>
 </div>
@@ -165,6 +143,7 @@ let username = location.pathname.split("/")[2];
 
 const galleryEl = document.getElementById("gallery");
 const titleEl = document.getElementById("title");
+
 const lightbox = document.getElementById("lightbox");
 const content = document.getElementById("lightbox-content");
 
@@ -176,11 +155,11 @@ let index = 0;
 backBtn.onclick = () => location.href="/";
 
 deleteBtn.onclick = async () => {
-  if (!confirm("Delete this entire gallery?")) return;
+  if (!confirm("Delete this gallery?")) return;
 
-  const res = await fetch(`/api/delete/${username}`, {method:"DELETE"});
-  const data = await res.json();
-  if(data.error) return alert(data.error);
+  const res = await fetch(`/api/delete/${username}`, {
+    method:"DELETE"
+  });
 
   location.href="/";
 };
@@ -194,69 +173,73 @@ function upload(){
   const fd = new FormData();
   for(let f of files) fd.append("files",f);
 
-  const xhr = new XMLHttpRequest();
-  xhr.open("POST", `/api/upload/${username}`);
-
-  progressWrap.style.display="block";
-
-  xhr.upload.onprogress = e=>{
-    const pct=Math.round(e.loaded/e.total*100);
-    progressBar.style.width=pct+"%";
-  };
-
-  xhr.onload=()=>{
-    loadGallery();
-    progressWrap.style.display="none";
-  };
-
-  xhr.send(fd);
+  fetch(`/api/upload/${username}`, {
+    method:"POST",
+    body: fd
+  }).then(()=>loadGallery());
 }
 
 /* ===== LIGHTBOX ===== */
 
 function show(i){
-  index=i;
+  index = i;
+  renderLightbox();
+  lightbox.style.display="flex";
+}
+
+function renderLightbox(){
   content.innerHTML="";
 
-  const f=media[i];
+  const f = media[index];
+  if(!f) return;
+
   let el;
 
   if(f.type==="image"){
     el=document.createElement("img");
-    el.src=f.src;
   }else{
     el=document.createElement("video");
-    el.src=f.src;
     el.controls=true;
-    el.playsInline=true;
   }
 
+  el.src=f.src;
   content.appendChild(el);
-  lightbox.style.display="flex";
 }
+
+/* 👉 NAVIGATION FIXED */
+
+prev.onclick = e=>{
+  e.stopPropagation();
+  index = (index-1+media.length)%media.length;
+  renderLightbox();
+};
+
+next.onclick = e=>{
+  e.stopPropagation();
+  index = (index+1)%media.length;
+  renderLightbox();
+};
 
 lightbox.onclick = e=>{
   if(!content.contains(e.target)){
     lightbox.style.display="none";
-    content.innerHTML="";
   }
 };
 
+/* ===== DELETE ITEM ===== */
+
 deleteItemBtn.onclick = async ()=>{
-  const f=media[index];
+  const f = media[index];
   if(!f) return;
 
   if(!confirm("Delete this item?")) return;
 
   const filename=f.src.replace("media/","");
 
-  const res = await fetch(
+  await fetch(
     `/api/deleteItem/${username}/${filename}`,
     {method:"DELETE"}
   );
-
-  const data=await res.json();
-  if(data.error) return alert(data.error);
 
   lightbox.style.display="none";
   loadGallery();
@@ -290,32 +273,17 @@ async function loadGallery(){
     );
 
     el.src=f.src;
-
-    if(f.type==="video"){
-      el.preload="metadata";
-      el.playsInline=true;
-      el.loading="lazy";
-    }
-
     el.onclick=()=>show(i);
 
     galleryEl.appendChild(el);
   });
 
-  /* ===== MOBILE-FRIENDLY DRAG ===== */
+  /* ===== DRAG REORDER (RESTORED) ===== */
 
   Sortable.create(galleryEl, {
-    animation: 200,
+    animation: 150,
 
-    delay: 120,
-    delayOnTouchOnly: true,
-
-    ghostClass: "drag-ghost",
-    chosenClass: "drag-chosen",
-
-    touchStartThreshold: 5,
-
-    onEnd: async () => {
+    onEnd: async ()=>{
       const order=[...galleryEl.children].map(
         c=>media.find(m=>m.src===c.src).src
       );
