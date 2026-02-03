@@ -1,3 +1,12 @@
 {
-  "users": []
+  "users": [
+    {
+      "username": "exampleuser",
+      "title": "My Gallery",
+      "bg_color": "#fff",
+      "text_color": "#000",
+      "pin": "1234",   <-- user-defined PIN
+      "items": []
+    }
+  ]
 }
