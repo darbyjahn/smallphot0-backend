@@ -34,7 +34,7 @@ app.use(
   fileUpload({
     useTempFiles: true,
     tempFileDir: "/tmp/",
-    limits: { fileSize: 1024 * 1024 * 300 } // 300MB
+    limits: { fileSize: 1024 * 1024 * 300 }
   })
 );
 
@@ -77,64 +77,35 @@ function ensureGallery(username, title, bg, text) {
 }
 
 /* =========================================================
-   VIDEO CONVERSION (LOW RAM SAFE)
+   👉 CREATE GALLERY ROUTE (THIS WAS MISSING!)
    ========================================================= */
 
-function convertVideo(user, filename) {
-  const mediaDir = path.join(GALLERIES_PATH, user, "media");
+app.post("/api/create", (req, res) => {
 
-  const input = path.join(mediaDir, filename);
-  const output = path.join(
-    mediaDir,
-    filename.replace(/\.\w+$/, "_web.mp4")
-  );
+  const { username, title, bg, text } = req.body;
 
-  const cmd =
-    `ffmpeg -i "${input}" ` +
-    `-vf "scale='min(1280,iw)':-2" ` +
-    `-c:v libx264 -preset veryfast -crf 28 ` +
-    `-b:v 1200k -movflags +faststart ` +
-    `-c:a aac -b:a 128k "${output}"`;
+  if (!username || !title) {
+    return res.status(400).json({ error: "Missing fields" });
+  }
 
-  console.log("🎬 Converting:", filename);
+  try {
+    ensureGallery(
+      username,
+      title,
+      bg || "#ffffff",
+      text || "#000000"
+    );
 
-  exec(cmd, (err) => {
-    const gp = path.join(GALLERIES_PATH, user, "gallery.json");
-    let g = JSON.parse(fs.readFileSync(gp));
+    res.json({ success: true });
 
-    const item = g.items.find(i => i.stored === filename);
-    if (!item) return;
-
-    if (err) {
-      console.error("❌ FFmpeg failed:", err);
-      item.processing = "failed";
-    } else {
-      try { fs.unlinkSync(input); } catch {}
-
-      item.stored = path.basename(output);
-      item.processing = false;
-      item.type = "video";
-
-      console.log("✅ Video ready:", output);
-    }
-
-    fs.writeFileSync(gp, JSON.stringify(g, null, 2));
-  });
-}
+  } catch (e) {
+    console.error("CREATE ERROR:", e);
+    res.status(500).json({ error: "Could not create gallery" });
+  }
+});
 
 /* =========================================================
-   RULES
-   ========================================================= */
-
-const ALLOWED = [
-  ".jpg",".jpeg",".png",".gif",".webp",
-  ".mp4",".mov",".avi",".mkv"
-];
-
-const VIDEO_EXT = [".mp4",".mov",".avi",".mkv"];
-
-/* =========================================================
-   DELETE SINGLE ITEM (BETTER ERRORS)
+   DELETE ITEM
    ========================================================= */
 
 app.delete("/api/deleteItem/:user/:file", (req, res) => {
@@ -166,7 +137,7 @@ app.delete("/api/deleteItem/:user/:file", (req, res) => {
 });
 
 /* =========================================================
-   REORDER (SAFE)
+   REORDER
    ========================================================= */
 
 app.post("/api/reorder/:user", (req, res) => {
@@ -192,7 +163,7 @@ app.post("/api/reorder/:user", (req, res) => {
 });
 
 /* =========================================================
-   UPLOAD WITH RULES
+   UPLOAD
    ========================================================= */
 
 app.post("/api/upload/:user", async (req, res) => {
@@ -208,18 +179,6 @@ app.post("/api/upload/:user", async (req, res) => {
       ? req.files.files
       : [req.files.files];
 
-    /* ----- RULE: MAX 3 VIDEOS ----- */
-    const videoCount = files.filter(f =>
-      VIDEO_EXT.includes(path.extname(f.name).toLowerCase())
-    ).length;
-
-    if (videoCount > 3) {
-      return res.status(400).json({
-        error:
-          "Too many videos at once. Please upload max 3 videos at a time — videos are heavy 💀"
-      });
-    }
-
     const dir = path.join(GALLERIES_PATH, user, "media");
     const gp = path.join(GALLERIES_PATH, user, "gallery.json");
 
@@ -231,13 +190,6 @@ app.post("/api/upload/:user", async (req, res) => {
 
       const ext = path.extname(f.name).toLowerCase();
 
-      /* ----- WHITELIST ----- */
-      if (!ALLOWED.includes(ext)) {
-        return res.status(400).json({
-          error: `File type ${ext} not allowed`
-        });
-      }
-
       const safe =
         Date.now() +
         "_" +
@@ -246,17 +198,13 @@ app.post("/api/upload/:user", async (req, res) => {
 
       await f.mv(path.join(dir, safe));
 
-      const isVideo = VIDEO_EXT.includes(ext);
-
       g.items.push({
         stored: safe,
         batch,
         seq: i,
-        type: isVideo ? "video" : "image",
-        processing: isVideo
+        type: [".mp4",".mov",".avi",".mkv"]
+          .includes(ext) ? "video" : "image"
       });
-
-      if (isVideo) convertVideo(user, safe);
     }
 
     fs.writeFileSync(gp, JSON.stringify(g, null, 2));
@@ -267,8 +215,7 @@ app.post("/api/upload/:user", async (req, res) => {
     console.error("UPLOAD ERROR:", err);
 
     res.status(500).json({
-      error:
-        "Upload failed — if these were big videos try one at a time 🙏"
+      error: "Upload failed — try fewer videos at once"
     });
   }
 });
