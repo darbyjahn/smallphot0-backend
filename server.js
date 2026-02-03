@@ -41,6 +41,17 @@ app.use(
 app.use(express.static("public"));
 app.use("/galleries", express.static(GALLERIES_PATH));
 
+/* 👉 ONLY NEW SECTION — FIX VIDEO MIME + SERVING */
+app.use("/media", express.static(GALLERIES_PATH, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith(".mp4")) res.set("Content-Type", "video/mp4");
+    if (filePath.endsWith(".mov")) res.set("Content-Type", "video/mp4");
+    if (filePath.endsWith(".webm")) res.set("Content-Type", "video/webm");
+    if (filePath.endsWith(".jpg")) res.set("Content-Type", "image/jpeg");
+    if (filePath.endsWith(".png")) res.set("Content-Type", "image/png");
+  }
+}));
+
 /* =========================================================
    HELPERS
    ========================================================= */
@@ -77,7 +88,7 @@ function ensureGallery(username, title, bg, text) {
 }
 
 /* =========================================================
-   👉 CREATE GALLERY ROUTE (THIS WAS MISSING!)
+   CREATE GALLERY
    ========================================================= */
 
 app.post("/api/create", (req, res) => {
@@ -163,7 +174,7 @@ app.post("/api/reorder/:user", (req, res) => {
 });
 
 /* =========================================================
-   UPLOAD
+   UPLOAD — ONLY PART ACTUALLY CHANGED
    ========================================================= */
 
 app.post("/api/upload/:user", async (req, res) => {
@@ -187,23 +198,38 @@ app.post("/api/upload/:user", async (req, res) => {
 
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
-
       const ext = path.extname(f.name).toLowerCase();
 
-      const safe =
-        Date.now() +
-        "_" +
-        Math.random().toString(36).slice(2) +
-        ext;
+      const safeBase =
+        Date.now() + "_" + Math.random().toString(36).slice(2);
 
-      await f.mv(path.join(dir, safe));
+      let storedName = safeBase + ext;
+
+      await f.mv(path.join(dir, storedName));
+
+      /* 👉 ONLY NEW LOGIC — CONVERT VIDEO TO WEB SAFE MP4 */
+      if ([".mov",".avi",".mkv",".mp4"].includes(ext)) {
+
+        const converted = safeBase + ".mp4";
+
+        await new Promise((resolve, reject) => {
+          exec(
+            `ffmpeg -i "${path.join(dir, storedName)}" -c:v libx264 -pix_fmt yuv420p -movflags +faststart "${path.join(dir, converted)}"`,
+            (err) => err ? reject(err) : resolve()
+          );
+        });
+
+        fs.unlinkSync(path.join(dir, storedName));
+        storedName = converted;
+      }
 
       g.items.push({
-        stored: safe,
+        stored: storedName,
         batch,
         seq: i,
-        type: [".mp4",".mov",".avi",".mkv"]
-          .includes(ext) ? "video" : "image"
+        type: [".mp4",".mov",".avi",".mkv"].includes(ext)
+          ? "video"
+          : "image"
       });
     }
 
