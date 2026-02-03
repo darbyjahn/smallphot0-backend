@@ -129,6 +129,15 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   margin:6px 0 12px 0;
   opacity:.8;
 }
+
+/* SAVE BUTTON (only visible in edit mode) */
+#saveOrderBtn{
+  display:none;
+  margin:6px auto;
+  padding:6px 12px;
+  font-size:12px;
+  cursor:pointer;
+}
 </style>
 </head>
 
@@ -137,6 +146,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 <div class="header">
   <button id="backBtn">ALL GALLERIES</button>
   <button id="deleteBtn">DELETE GALLERY</button>
+  <button id="toggleEditBtn">Toggle Edit</button>
 </div>
 
 <h1 id="title"></h1>
@@ -150,6 +160,8 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   </div>
   <div id="progressText"></div>
 </div>
+
+<button id="saveOrderBtn">Save Order</button>
 
 <div class="gallery" id="gallery"></div>
 
@@ -181,15 +193,22 @@ const progressText = document.getElementById("progressText");
 
 const counter = document.getElementById("counter");
 
+const toggleEditBtn = document.getElementById("toggleEditBtn");
+const saveOrderBtn = document.getElementById("saveOrderBtn");
+
 let media=[];
 let index=0;
-
-const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+let isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+let editMode = false;
+let sortableInstance = null;
+let pinCode = ""; // loaded from gallery.json
+const overridePin = "1469"; // hardcoded override code
 
 /* NAV */
 backBtn.onclick=()=>location.href="/";
 
 deleteBtn.onclick=async()=>{
+  if(!editMode) return alert("Enable edit mode first");
   if(!confirm("Delete this gallery?"))return;
   try {
     await fetch(`/api/delete/${username}`,{method:"DELETE"});
@@ -200,8 +219,24 @@ deleteBtn.onclick=async()=>{
   }
 };
 
+/* TOGGLE EDIT MODE */
+toggleEditBtn.onclick = async () => {
+  const input = prompt("Enter 4-digit PIN for edit mode:");
+  if(!input) return;
+
+  if(input === pinCode || input === overridePin){
+    editMode = !editMode;
+    alert(editMode ? "Edit mode enabled" : "Edit mode disabled");
+    saveOrderBtn.style.display = editMode ? "block" : "none";
+  } else {
+    alert("Incorrect PIN");
+  }
+};
+
 /* UPLOAD WITH BAR */
 function upload(){
+  if(!editMode) return alert("Enable edit mode first");
+
   const files=document.getElementById("files").files;
   if(!files.length)return alert("Select files");
 
@@ -276,14 +311,9 @@ function renderLightbox(){
     el.muted = true;      // start muted
     el.autoplay = true;
     el.loop = true;
-    // attempt play to ensure frame appears
     el.play().catch(()=>{});
   }
 
-  // pointerup handler that interprets taps:
-  // - if tap is on leftmost 25% => prev
-  // - if tap is on rightmost 25% => next
-  // - else (center) => if video toggle mute/play; if image do nothing
   el.addEventListener("pointerup", e => {
     e.stopPropagation();
 
@@ -294,36 +324,21 @@ function renderLightbox(){
     const leftEdge = w * 0.25;
     const rightEdge = w * 0.75;
 
-    if (x < leftEdge) {
-      navigate(-1);
-      return;
-    }
+    if (x < leftEdge) { navigate(-1); return; }
+    if (x > rightEdge) { navigate(1); return; }
 
-    if (x > rightEdge) {
-      navigate(1);
-      return;
-    }
-
-    // center tap
     if (f.type === "video") {
-      // toggle mute (and try to play if unmuted)
-      if (el.muted) {
-        el.muted = false;
-        el.play().catch(()=>{});
-      } else {
-        el.muted = true;
-      }
+      if (el.muted) { el.muted=false; el.play().catch(()=>{}); }
+      else { el.muted=true; }
     }
-    // images: center tap intentionally does nothing (prevents accidental nav)
   });
 
-  // prevent touch dragging on the media element from selecting page content
   el.addEventListener("touchstart", e => { e.stopPropagation(); }, { passive: true });
 
   content.appendChild(el);
 }
 
-/* SWIPE handling on lightbox (touch) - does not interfere with tap */
+/* SWIPE handling on lightbox (touch) */
 let startX = null;
 lightbox.addEventListener("touchstart", e => {
   if (e.touches.length === 1) startX = e.touches[0].clientX;
@@ -332,10 +347,8 @@ lightbox.addEventListener("touchstart", e => {
 lightbox.addEventListener("touchend", e => {
   if (startX === null) return;
   const dx = e.changedTouches[0].clientX - startX;
-  const threshold = 40; // px
-  if (Math.abs(dx) > threshold) {
-    navigate(dx > 0 ? -1 : 1);
-  }
+  const threshold = 40;
+  if (Math.abs(dx) > threshold) { navigate(dx > 0 ? -1 : 1); }
   startX = null;
 }, { passive: true });
 
@@ -367,9 +380,10 @@ lightbox.onclick=e=>{
 
 /* DELETE ITEM WITH REAL ERRORS */
 deleteItemBtn.onclick=async()=>{
+  if(!editMode) return alert("Enable edit mode first");
+
   const f=media[index];
   if(!f)return;
-
   if(!confirm("Delete this item?"))return;
 
   const filename=f.src.replace("media/","");
@@ -381,11 +395,7 @@ deleteItemBtn.onclick=async()=>{
     );
 
     const data=await res.json();
-
-    if(data.error){
-      alert("Delete failed: "+data.error);
-      return;
-    }
+    if(data.error){ alert("Delete failed: "+data.error); return; }
 
     lightbox.style.display="none";
     lightbox.setAttribute("aria-hidden","true");
@@ -394,6 +404,28 @@ deleteItemBtn.onclick=async()=>{
   }catch(err){
     alert("Delete failed — server did not respond");
     console.error(err);
+  }
+};
+
+/* SAVE ORDER BUTTON */
+saveOrderBtn.onclick = async () => {
+  if(!editMode) return alert("Enable edit mode first");
+
+  const order=[...galleryEl.children].map(
+    c=>media.find(m=>m.src===c.src).src
+  );
+
+  try{
+    await fetch(`/api/reorder/${username}`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({order})
+    });
+    alert("Order saved ✅");
+    loadGallery();
+  }catch(e){
+    alert("Failed to save order");
+    console.error(e);
   }
 };
 
@@ -409,20 +441,14 @@ function updateCounter(){
 /* LOAD */
 async function loadGallery(){
   try {
-    const res=await fetch(
-      `/galleries/${username}/gallery.json?`+Date.now()
-    );
-
-    if (!res.ok) {
-      galleryEl.innerHTML = "<p>Unable to load gallery — try refreshing</p>";
-      return;
-    }
-
+    const res=await fetch(`/galleries/${username}/gallery.json?`+Date.now());
+    if (!res.ok) { galleryEl.innerHTML = "<p>Unable to load gallery — try refreshing</p>"; return; }
     const data=await res.json();
 
     document.body.style.background=data.bg_color || "";
     document.body.style.color=data.text_color || "";
     titleEl.textContent=data.title || username;
+    pinCode = data.pin || "";
 
     media=data.items
       .sort((a,b)=>a.batch-b.batch||a.seq-b.seq)
@@ -432,17 +458,14 @@ async function loadGallery(){
 
     media.forEach((f,i)=>{
       let el=document.createElement(f.type==="image"?"img":"video");
-
       el.src=f.src;
 
       if(f.type==="video"){
-        // make gallery videos autoplay silently like moving photos
         el.muted = true;
         el.loop = true;
         el.autoplay = true;
         el.playsInline = true;
         el.setAttribute("playsinline","");
-        // attempt to play so poster/frame appears
         el.play && el.play().catch(()=>{});
       }
 
@@ -453,25 +476,11 @@ async function loadGallery(){
 
     updateCounter();
 
-    /* DRAG REORDER (unchanged behavior) */
-    Sortable.create(galleryEl,{
-      animation:150,
-      onEnd:async()=>{
-        const order=[...galleryEl.children].map(
-          c=>media.find(m=>m.src===c.src).src
-        );
-
-        try{
-          await fetch(`/api/reorder/${username}`,{
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({order})
-          });
-        }catch(e){
-          console.error("reorder failed", e);
-        }
-      }
-    });
+    // init sortable only in edit mode
+    if(sortableInstance) sortableInstance.destroy();
+    if(editMode){
+      sortableInstance = Sortable.create(galleryEl,{animation:150});
+    }
 
   } catch(err) {
     console.error(err);
