@@ -7,268 +7,160 @@ const { exec } = require("child_process");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-/* =========================================================
-   PATHS ON RENDER DISK
-   ========================================================= */
-
 const DATA_PATH = "/var/data";
 const GALLERIES_PATH = path.join(DATA_PATH, "galleries");
 const GALLERIES_FILE = path.join(DATA_PATH, "galleries.json");
 
-/* ----- ENSURE DISK STRUCTURE ----- */
-for (const p of [DATA_PATH, GALLERIES_PATH]) {
-  if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
-}
+/* DISK SETUP */
+if (!fs.existsSync(DATA_PATH))
+  fs.mkdirSync(DATA_PATH,{recursive:true});
 
-if (!fs.existsSync(GALLERIES_FILE)) {
-  fs.writeFileSync(GALLERIES_FILE, JSON.stringify({ users: [] }, null, 2));
-}
+if (!fs.existsSync(GALLERIES_PATH))
+  fs.mkdirSync(GALLERIES_PATH,{recursive:true});
 
-/* =========================================================
-   MIDDLEWARE
-   ========================================================= */
+if (!fs.existsSync(GALLERIES_FILE))
+  fs.writeFileSync(GALLERIES_FILE,'{"users":[]}');
 
 app.use(express.json());
 
-app.use(
-  fileUpload({
-    useTempFiles: true,
-    tempFileDir: "/tmp/",
-    limits: { fileSize: 1024 * 1024 * 300 }
-  })
-);
-
-app.use(express.static("public"));
-app.use("/galleries", express.static(GALLERIES_PATH));
-
-/* 👉 ONLY NEW SECTION — FIX VIDEO MIME + SERVING */
-app.use("/media", express.static(GALLERIES_PATH, {
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith(".mp4")) res.set("Content-Type", "video/mp4");
-    if (filePath.endsWith(".mov")) res.set("Content-Type", "video/mp4");
-    if (filePath.endsWith(".webm")) res.set("Content-Type", "video/webm");
-    if (filePath.endsWith(".jpg")) res.set("Content-Type", "image/jpeg");
-    if (filePath.endsWith(".png")) res.set("Content-Type", "image/png");
-  }
+app.use(fileUpload({
+  useTempFiles:true,
+  tempFileDir:"/tmp/",
+  limits:{fileSize:1024*1024*300}
 }));
 
-/* =========================================================
-   HELPERS
-   ========================================================= */
+app.use(express.static("public"));
+app.use("/galleries",express.static(GALLERIES_PATH));
 
-const load = () => JSON.parse(fs.readFileSync(GALLERIES_FILE, "utf8"));
-const save = d => fs.writeFileSync(GALLERIES_FILE, JSON.stringify(d, null, 2));
+const load=()=>JSON.parse(fs.readFileSync(GALLERIES_FILE));
+const save=d=>fs.writeFileSync(GALLERIES_FILE,JSON.stringify(d,null,2));
 
-function ensureGallery(username, title, bg, text) {
-  const base = path.join(GALLERIES_PATH, username);
+function ensureGallery(username,title,bg,text){
+  const base=path.join(GALLERIES_PATH,username);
 
-  if (!fs.existsSync(base)) {
-    fs.mkdirSync(path.join(base, "media"), { recursive: true });
+  if(!fs.existsSync(base)){
+    fs.mkdirSync(path.join(base,"media"),{recursive:true});
 
     fs.writeFileSync(
-      path.join(base, "gallery.json"),
-      JSON.stringify(
-        { title, bg_color: bg, text_color: text, items: [] },
-        null,
-        2
-      )
+      path.join(base,"gallery.json"),
+      JSON.stringify({
+        title,bg_color:bg,text_color:text,items:[]
+      },null,2)
     );
 
     fs.copyFileSync(
-      path.join(__dirname, "public", "gallery.html"),
-      path.join(base, "index.html")
+      path.join(__dirname,"public","gallery.html"),
+      path.join(base,"index.html")
     );
   }
 
-  const data = load();
-  if (!data.users.find(u => u.username === username)) {
-    data.users.push({ username, title, bg, text });
+  const data=load();
+  if(!data.users.find(u=>u.username===username)){
+    data.users.push({username,title,bg,text});
     save(data);
   }
 }
 
-/* =========================================================
-   CREATE GALLERY
-   ========================================================= */
+/* DELETE ITEM */
+app.delete("/api/deleteItem/:user/:file",(req,res)=>{
+  try{
+    const {user,file}=req.params;
 
-app.post("/api/create", (req, res) => {
+    const fp=path.join(GALLERIES_PATH,user,"media",file);
+    const gp=path.join(GALLERIES_PATH,user,"gallery.json");
 
-  const { username, title, bg, text } = req.body;
+    if(fs.existsSync(fp)) fs.unlinkSync(fp);
 
-  if (!username || !title) {
-    return res.status(400).json({ error: "Missing fields" });
-  }
+    let g=JSON.parse(fs.readFileSync(gp));
 
-  try {
-    ensureGallery(
-      username,
-      title,
-      bg || "#ffffff",
-      text || "#000000"
-    );
+    g.items=g.items.filter(i=>i.stored!==file);
 
-    res.json({ success: true });
+    fs.writeFileSync(gp,JSON.stringify(g,null,2));
 
-  } catch (e) {
-    console.error("CREATE ERROR:", e);
-    res.status(500).json({ error: "Could not create gallery" });
+    res.json({success:true});
+  }catch(e){
+    res.status(500).json({error:"delete failed"});
   }
 });
 
-/* =========================================================
-   DELETE ITEM
-   ========================================================= */
+/* REORDER */
+app.post("/api/reorder/:user",(req,res)=>{
+  const gp=path.join(
+    GALLERIES_PATH,
+    req.params.user,
+    "gallery.json"
+  );
 
-app.delete("/api/deleteItem/:user/:file", (req, res) => {
-  try {
-    const { user, file } = req.params;
+  let g=JSON.parse(fs.readFileSync(gp));
 
-    const fp = path.join(GALLERIES_PATH, user, "media", file);
-    const gp = path.join(GALLERIES_PATH, user, "gallery.json");
+  g.items=req.body.order.map((src,i)=>{
+    const name=src.replace("media/","");
+    const old=g.items.find(x=>x.stored===name);
+    return {...old,seq:i};
+  });
 
-    if (!fs.existsSync(gp))
-      return res.status(404).json({ error: "Gallery not found" });
+  fs.writeFileSync(gp,JSON.stringify(g,null,2));
 
-    if (!fs.existsSync(fp))
-      return res.status(404).json({ error: "File not found on disk" });
-
-    fs.unlinkSync(fp);
-
-    let g = JSON.parse(fs.readFileSync(gp));
-    g.items = g.items.filter(i => i.stored !== file);
-
-    fs.writeFileSync(gp, JSON.stringify(g, null, 2));
-
-    res.json({ success: true });
-
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "Server could not delete item" });
-  }
+  res.json({success:true});
 });
 
-/* =========================================================
-   REORDER
-   ========================================================= */
+/* UPLOAD */
+app.post("/api/upload/:user",async(req,res)=>{
+  const user=req.params.user;
 
-app.post("/api/reorder/:user", (req, res) => {
-  try {
-    const gp = path.join(GALLERIES_PATH, req.params.user, "gallery.json");
+  ensureGallery(user,user,"#fff","#000");
 
-    let g = JSON.parse(fs.readFileSync(gp));
+  const files=Array.isArray(req.files.files)
+    ? req.files.files
+    : [req.files.files];
 
-    g.items = req.body.order
-      .map((src, i) => {
-        const name = src.replace("media/", "");
-        const old = g.items.find(x => x.stored === name);
-        return old ? { ...old, seq: i } : null;
-      })
-      .filter(Boolean);
+  const dir=path.join(GALLERIES_PATH,user,"media");
+  const gp=path.join(GALLERIES_PATH,user,"gallery.json");
 
-    fs.writeFileSync(gp, JSON.stringify(g, null, 2));
+  let g=JSON.parse(fs.readFileSync(gp));
 
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: "Could not reorder" });
-  }
-});
+  const batch=Date.now();
 
-/* =========================================================
-   UPLOAD — ONLY PART ACTUALLY CHANGED
-   ========================================================= */
+  for(let i=0;i<files.length;i++){
+    const f=files[i];
 
-app.post("/api/upload/:user", async (req, res) => {
-  try {
-    const user = req.params.user;
+    const ext=path.extname(f.name);
 
-    ensureGallery(user, user, "#fff", "#000");
+    const safe=
+      Date.now()+"_"+Math.random().toString(36).slice(2)+ext;
 
-    if (!req.files || !req.files.files)
-      return res.status(400).json({ error: "No files received" });
+    await f.mv(path.join(dir,safe));
 
-    const files = Array.isArray(req.files.files)
-      ? req.files.files
-      : [req.files.files];
-
-    const dir = path.join(GALLERIES_PATH, user, "media");
-    const gp = path.join(GALLERIES_PATH, user, "gallery.json");
-
-    let g = JSON.parse(fs.readFileSync(gp));
-    const batch = Date.now();
-
-    for (let i = 0; i < files.length; i++) {
-      const f = files[i];
-      const ext = path.extname(f.name).toLowerCase();
-
-      const safeBase =
-        Date.now() + "_" + Math.random().toString(36).slice(2);
-
-      let storedName = safeBase + ext;
-
-      await f.mv(path.join(dir, storedName));
-
-      /* 👉 ONLY NEW LOGIC — CONVERT VIDEO TO WEB SAFE MP4 */
-      if ([".mov",".avi",".mkv",".mp4"].includes(ext)) {
-
-        const converted = safeBase + ".mp4";
-
-        await new Promise((resolve, reject) => {
-          exec(
-            `ffmpeg -i "${path.join(dir, storedName)}" -c:v libx264 -pix_fmt yuv420p -movflags +faststart "${path.join(dir, converted)}"`,
-            (err) => err ? reject(err) : resolve()
-          );
-        });
-
-        fs.unlinkSync(path.join(dir, storedName));
-        storedName = converted;
-      }
-
-      g.items.push({
-        stored: storedName,
-        batch,
-        seq: i,
-        type: [".mp4",".mov",".avi",".mkv"].includes(ext)
-          ? "video"
-          : "image"
-      });
-    }
-
-    fs.writeFileSync(gp, JSON.stringify(g, null, 2));
-
-    res.json({ success: true });
-
-  } catch (err) {
-    console.error("UPLOAD ERROR:", err);
-
-    res.status(500).json({
-      error: "Upload failed — try fewer videos at once"
+    g.items.push({
+      stored:safe,
+      batch,
+      seq:i,
+      type:[".mp4",".mov",".avi",".mkv"]
+        .includes(ext.toLowerCase())
+        ?"video":"image"
     });
   }
+
+  fs.writeFileSync(gp,JSON.stringify(g,null,2));
+
+  res.json({success:true});
 });
 
-/* =========================================================
-   BASIC
-   ========================================================= */
-
-app.get("/api/galleries", (req, res) =>
+/* BASIC */
+app.get("/api/galleries",(req,res)=>
   res.json(load().users)
 );
 
-app.delete("/api/delete/:user", (req, res) => {
-  try {
-    fs.rmSync(
-      path.join(GALLERIES_PATH, req.params.user),
-      { recursive: true, force: true }
-    );
+app.delete("/api/delete/:user",(req,res)=>{
+  fs.rmSync(path.join(GALLERIES_PATH,req.params.user),{
+    recursive:true,force:true
+  });
 
-    let d = load();
-    d.users = d.users.filter(u => u.username !== req.params.user);
-    save(d);
+  let d=load();
+  d.users=d.users.filter(u=>u.username!==req.params.user);
+  save(d);
 
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: "Could not delete gallery" });
-  }
+  res.json({success:true});
 });
 
-app.listen(PORT, () => console.log("🚀 server running"));
+app.listen(PORT,()=>console.log("running"));
