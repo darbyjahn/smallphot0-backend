@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Gallery</title>
-<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/styles.css"/>
 
 <style>
 body{margin:0;font-family:Arial,Helvetica,sans-serif}
@@ -36,10 +36,12 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 }
 .gallery img,
 .gallery video{
-  width:100%;height:100%;
+  width:100%;
+  height:100%;
   object-fit:cover;
   border-radius:6px;
   cursor:pointer;
+  background:#000;
 }
 
 /* DRAG */
@@ -56,12 +58,20 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   align-items:center;
   z-index:2000;
 }
-#lightbox-content img,
-#lightbox-content video{
+#lightbox-content{
+  position:relative;
   max-width:90vw;
   max-height:90vh;
 }
+#lightbox-content img,
+#lightbox-content video{
+  max-width:100%;
+  max-height:100%;
+  border-radius:8px;
+  display:block;
+}
 
+/* NAV ARROWS */
 .nav{
   position:absolute;
   top:50%;
@@ -70,10 +80,17 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   font-size:32px;
   cursor:pointer;
   user-select:none;
+  z-index:2100;
 }
 #prev{left:10px}
 #next{right:10px}
 
+/* hide arrows on touch devices (phones) */
+@media (pointer: coarse) {
+  .nav { display: none; }
+}
+
+/* delete item button */
 #deleteItemBtn{
   position:absolute;
   top:10px;
@@ -81,6 +98,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   background:none;
   border:none;
   color:white;
+  z-index:2200;
 }
 
 /* UPLOAD BAR */
@@ -138,7 +156,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 <div id="counter"></div>
 
 <!-- LIGHTBOX -->
-<div id="lightbox">
+<div id="lightbox" aria-hidden="true">
   <div id="prev" class="nav">‹</div>
   <div id="next" class="nav">›</div>
 
@@ -166,15 +184,20 @@ const counter = document.getElementById("counter");
 let media=[];
 let index=0;
 
-const isTouch="ontouchstart"in window;
+const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
 
 /* NAV */
 backBtn.onclick=()=>location.href="/";
 
 deleteBtn.onclick=async()=>{
   if(!confirm("Delete this gallery?"))return;
-  await fetch(`/api/delete/${username}`,{method:"DELETE"});
-  location.href="/";
+  try {
+    await fetch(`/api/delete/${username}`,{method:"DELETE"});
+    location.href="/";
+  } catch(e){
+    alert("Delete failed — server error");
+    console.error(e);
+  }
 };
 
 /* UPLOAD WITH BAR */
@@ -227,38 +250,94 @@ function upload(){
   xhr.send(fd);
 }
 
-/* LIGHTBOX */
+/* LIGHTBOX rendering with side-tap navigation + center video control */
 function show(i){
   index=i;
   renderLightbox();
   lightbox.style.display="flex";
+  lightbox.setAttribute("aria-hidden","false");
 }
 
 function renderLightbox(){
   content.innerHTML="";
-  const f=media[index];
-  if(!f)return;
+  const f = media[index];
+  if(!f) return;
 
   let el;
   if(f.type==="image"){
-    el=document.createElement("img");
-  }else{
-    el=document.createElement("video");
-    el.controls=true;
-    el.playsInline=true;
+    el = document.createElement("img");
+    el.src = f.src;
+  } else {
+    el = document.createElement("video");
+    el.src = f.src;
+    el.controls = true;
+    el.playsInline = true;
+    el.setAttribute("playsinline","");
+    el.muted = true;      // start muted
+    el.autoplay = true;
+    el.loop = true;
+    // attempt play to ensure frame appears
+    el.play().catch(()=>{});
   }
-  el.src=f.src;
 
-  /* MOBILE TAP NAV */
-  if(isTouch){
-    el.addEventListener("pointerup",e=>{
-      const mid=window.innerWidth/2;
-      navigate(e.clientX<mid?-1:1);
-    });
-  }
+  // pointerup handler that interprets taps:
+  // - if tap is on leftmost 25% => prev
+  // - if tap is on rightmost 25% => next
+  // - else (center) => if video toggle mute/play; if image do nothing
+  el.addEventListener("pointerup", e => {
+    e.stopPropagation();
+
+    const rect = el.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const w = rect.width || window.innerWidth;
+
+    const leftEdge = w * 0.25;
+    const rightEdge = w * 0.75;
+
+    if (x < leftEdge) {
+      navigate(-1);
+      return;
+    }
+
+    if (x > rightEdge) {
+      navigate(1);
+      return;
+    }
+
+    // center tap
+    if (f.type === "video") {
+      // toggle mute (and try to play if unmuted)
+      if (el.muted) {
+        el.muted = false;
+        el.play().catch(()=>{});
+      } else {
+        el.muted = true;
+      }
+    }
+    // images: center tap intentionally does nothing (prevents accidental nav)
+  });
+
+  // prevent touch dragging on the media element from selecting page content
+  el.addEventListener("touchstart", e => { e.stopPropagation(); }, { passive: true });
 
   content.appendChild(el);
 }
+
+/* SWIPE handling on lightbox (touch) - does not interfere with tap */
+let startX = null;
+lightbox.addEventListener("touchstart", e => {
+  if (e.touches.length === 1) startX = e.touches[0].clientX;
+}, { passive: true });
+
+lightbox.addEventListener("touchend", e => {
+  if (startX === null) return;
+  const dx = e.changedTouches[0].clientX - startX;
+  const threshold = 40; // px
+  if (Math.abs(dx) > threshold) {
+    navigate(dx > 0 ? -1 : 1);
+  }
+  startX = null;
+}, { passive: true });
 
 /* ARROWS + KEYS */
 function navigate(d){
@@ -266,19 +345,24 @@ function navigate(d){
   renderLightbox();
 }
 
-prev.onclick=e=>{e.stopPropagation();navigate(-1)};
-next.onclick=e=>{e.stopPropagation();navigate(1)};
+prev.onclick=e=>{ e.stopPropagation(); navigate(-1); };
+next.onclick=e=>{ e.stopPropagation(); navigate(1); };
 
-document.addEventListener("keydown",e=>{
+document.addEventListener("keydown", e=>{
   if(lightbox.style.display!=="flex")return;
   if(e.key==="ArrowLeft")navigate(-1);
   if(e.key==="ArrowRight")navigate(1);
-  if(e.key==="Escape")lightbox.style.display="none";
+  if(e.key==="Escape"){
+    lightbox.style.display="none";
+    lightbox.setAttribute("aria-hidden","true");
+  }
 });
 
 lightbox.onclick=e=>{
-  if(!content.contains(e.target))
+  if(!content.contains(e.target)){
     lightbox.style.display="none";
+    lightbox.setAttribute("aria-hidden","true");
+  }
 };
 
 /* DELETE ITEM WITH REAL ERRORS */
@@ -304,6 +388,7 @@ deleteItemBtn.onclick=async()=>{
     }
 
     lightbox.style.display="none";
+    lightbox.setAttribute("aria-hidden","true");
     loadGallery();
 
   }catch(err){
@@ -323,53 +408,75 @@ function updateCounter(){
 
 /* LOAD */
 async function loadGallery(){
-  const res=await fetch(
-    `/galleries/${username}/gallery.json?`+Date.now()
-  );
-
-  const data=await res.json();
-
-  document.body.style.background=data.bg_color;
-  document.body.style.color=data.text_color;
-  titleEl.textContent=data.title;
-
-  media=data.items
-    .sort((a,b)=>a.batch-b.batch||a.seq-b.seq)
-    .map(i=>({
-      type:i.type,
-      src:"media/"+i.stored
-    }));
-
-  galleryEl.innerHTML="";
-
-  media.forEach((f,i)=>{
-    let el=document.createElement(
-      f.type==="image"?"img":"video"
+  try {
+    const res=await fetch(
+      `/galleries/${username}/gallery.json?`+Date.now()
     );
 
-    el.src=f.src;
-    el.onclick=()=>show(i);
-
-    galleryEl.appendChild(el);
-  });
-
-  updateCounter();
-
-  /* DRAG REORDER */
-  Sortable.create(galleryEl,{
-    animation:150,
-    onEnd:async()=>{
-      const order=[...galleryEl.children].map(
-        c=>media.find(m=>m.src===c.src).src
-      );
-
-      await fetch(`/api/reorder/${username}`,{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({order})
-      });
+    if (!res.ok) {
+      galleryEl.innerHTML = "<p>Unable to load gallery — try refreshing</p>";
+      return;
     }
-  });
+
+    const data=await res.json();
+
+    document.body.style.background=data.bg_color || "";
+    document.body.style.color=data.text_color || "";
+    titleEl.textContent=data.title || username;
+
+    media=data.items
+      .sort((a,b)=>a.batch-b.batch||a.seq-b.seq)
+      .map(i=>({ type:i.type, src:"media/"+i.stored }));
+
+    galleryEl.innerHTML="";
+
+    media.forEach((f,i)=>{
+      let el=document.createElement(f.type==="image"?"img":"video");
+
+      el.src=f.src;
+
+      if(f.type==="video"){
+        // make gallery videos autoplay silently like moving photos
+        el.muted = true;
+        el.loop = true;
+        el.autoplay = true;
+        el.playsInline = true;
+        el.setAttribute("playsinline","");
+        // attempt to play so poster/frame appears
+        el.play && el.play().catch(()=>{});
+      }
+
+      el.onclick=()=>show(i);
+
+      galleryEl.appendChild(el);
+    });
+
+    updateCounter();
+
+    /* DRAG REORDER (unchanged behavior) */
+    Sortable.create(galleryEl,{
+      animation:150,
+      onEnd:async()=>{
+        const order=[...galleryEl.children].map(
+          c=>media.find(m=>m.src===c.src).src
+        );
+
+        try{
+          await fetch(`/api/reorder/${username}`,{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({order})
+          });
+        }catch(e){
+          console.error("reorder failed", e);
+        }
+      }
+    });
+
+  } catch(err) {
+    console.error(err);
+    galleryEl.innerHTML = "<p>Unable to load gallery — try refreshing</p>";
+  }
 }
 
 loadGallery();
