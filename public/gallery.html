@@ -247,7 +247,7 @@ toggleEditBtn.onclick = async () => {
     // entering edit mode
     if(!pinCode){
       // first time: ask user to pick a pin
-      let newPin = prompt("Set a 4-digit PIN for this gallery:");
+      let newPin = prompt("Pick 4 things. Don't forget.:");
       if(!newPin || !/^[0-9A-Za-z]{4}$/.test(newPin)){
         alert("Invalid PIN. Ur mom a hoe.");
         return;
@@ -261,7 +261,7 @@ toggleEditBtn.onclick = async () => {
       });
     } else {
       // existing gallery: prompt for pin
-      let input = prompt("Enter 4-digit PIN for edit mode:");
+      let input = prompt("Enter 4-digit PIN.:");
       if(input !== pinCode && input !== overridePin){
         alert("Incorrect PIN");
         return;
@@ -325,7 +325,7 @@ function upload(){
 
   xhr.onload=()=>{
     if(xhr.status!==200){
-      progressText.textContent="Try one at a time — videos are heavy 🙃";
+      progressText.textContent="Try one at a time for videos. ";
       return alert("Upload failed — videos work better one at a time");
     }
 
