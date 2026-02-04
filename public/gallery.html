@@ -206,7 +206,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   <div id="prev" class="nav">‹</div>
   <div id="next" class="nav">›</div>
 
-  <button id="deleteItemBtn">DELETE</button>
+  <button id="deleteItemBtn" style="display:none;">DELETE</button>
   <div id="lightbox-content"></div>
 </div>
 
@@ -270,23 +270,28 @@ toggleEditBtn.onclick = async () => {
   }
   editMode = !editMode;
 
-  if(editMode){
-    toggleEditBtn.textContent = "View";
-    toggleEditBtn.classList.remove("viewMode");
-    toggleEditBtn.classList.add("editMode");
+if(editMode){
+  toggleEditBtn.textContent = "View";
+  toggleEditBtn.classList.remove("viewMode");
+  toggleEditBtn.classList.add("editMode");
 
-    uploadDiv.style.display = "block";
-    saveOrderBtn.style.display = "block";
-    deleteBtnEl.style.display = "block";
-  } else {
-    toggleEditBtn.textContent = "Edit";
-    toggleEditBtn.classList.remove("editMode");
-    toggleEditBtn.classList.add("viewMode");
+  uploadDiv.style.display = "block";
+  saveOrderBtn.style.display = "block";
+  deleteBtnEl.style.display = "block";
 
-    uploadDiv.style.display = "none";
-    saveOrderBtn.style.display = "none";
-    deleteBtnEl.style.display = "none";
-  }
+  deleteItemBtn.style.display = "block";  
+} else {
+  toggleEditBtn.textContent = "Edit";
+  toggleEditBtn.classList.remove("editMode");
+  toggleEditBtn.classList.add("viewMode");
+
+  uploadDiv.style.display = "none";
+  saveOrderBtn.style.display = "none";
+  deleteBtnEl.style.display = "none";
+
+  deleteItemBtn.style.display = "none";    
+}
+
 
   loadGallery();
 };
@@ -344,6 +349,8 @@ function show(i){
   renderLightbox();
   lightbox.style.display="flex";
   lightbox.setAttribute("aria-hidden","false");
+
+  deleteItemBtn.style.display = editMode ? "block" : "none";
 }
 
 function renderLightbox(){
