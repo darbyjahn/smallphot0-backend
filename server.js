@@ -254,6 +254,39 @@ app.get("/api/galleries", (req, res) =>
   res.json(load().users)
 );
 
+/* =========================================================
+   SET PIN FOR GALLERY
+   ========================================================= */
+
+app.post("/api/setPin/:user", (req, res) => {
+  try {
+    const user = req.params.user;
+    const { pin } = req.body;
+
+    if (!pin || !/^[0-9A-Za-z]{4}$/.test(pin)) {
+      return res.status(400).json({ error: "Invalid PIN format" });
+    }
+
+    const gp = path.join(GALLERIES_PATH, user, "gallery.json");
+
+    if (!fs.existsSync(gp)) {
+      return res.status(404).json({ error: "Gallery not found" });
+    }
+
+    let g = JSON.parse(fs.readFileSync(gp, "utf8"));
+
+    g.pin = pin;
+
+    fs.writeFileSync(gp, JSON.stringify(g, null, 2));
+
+    res.json({ success: true });
+
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Could not set pin" });
+  }
+});
+
 app.delete("/api/delete/:user", (req, res) => {
   try {
     fs.rmSync(
