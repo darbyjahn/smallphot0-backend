@@ -9,14 +9,28 @@
 <style>
 body{margin:0;font-family:Arial,Helvetica,sans-serif}
 
-/* HEADER */
-.header{
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  align-items:center;
-  padding:10px;
+/* buttons */
+.header {
+  display: flex;
+  justify-content: center; /* center the column horizontally */
+  padding: 10px;
 }
+
+.header-column {
+  display: flex;
+  flex-direction: column; /* stack buttons vertically */
+  gap: 6px;               /* spacing between buttons */
+  align-items: center;    /* center buttons horizontally */
+}
+
+/* more space on mobile */
+@media (max-width: 700px) {
+  .header-column {
+    gap: 10px;  /* bigger spacing on mobile */
+  }
+}
+
+
 .header button{
   font-size:13px;
   cursor:pointer;
@@ -38,11 +52,8 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 #editModeBtn.editMode{background:#f44336;color:white;}
 #deleteBtn{background:#ff9800;color:white;}
 
-/* HEADER layout for delete button */
-.header-column{
-  display:flex;
-  flex-direction:column;
-}
+
+
 
 /* TITLE */
 #title{text-align:center;margin:4px 0 8px 0}
@@ -205,9 +216,8 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 <body>
 
 <div class="header">
-  <button id="backBtn">ALL GALLERIES</button>
-
   <div class="header-column">
+    <button id="backBtn">ALL GALLERIES</button>
     <button id="editModeBtn" class="viewMode">Edit</button>
     <button id="deleteBtn" style="display:none;">DELETE GALLERY</button>
   </div>
