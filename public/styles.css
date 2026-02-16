@@ -11,10 +11,15 @@ body {
 
 .gallery {
   display: grid;
-
-  /* layout */
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
+  padding: 12px var(--gallery-side) var(--gallery-bottom) var(--gallery-side);
+  width: 100%;
+  max-width: 1600px;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+}
 
   /* THE ONLY PADDING THAT EXISTS NOW */
   padding:
