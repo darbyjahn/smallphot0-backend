@@ -221,10 +221,6 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 
 <h1 id="title"></h1>
 
-<!-- TRASH CAN -->
-<img id="trashCan" src="/trash.png" alt="Trash" style="display:none; position:fixed; top:10px; right:10px; width:60px; cursor:pointer; z-index:3000;">
-
-
 <div class="upload">
   <input type="file" id="files" multiple>
   <button onclick="upload()">Upload</button>
@@ -256,9 +252,6 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 let username = location.pathname.split("/")[2];
 const galleryEl = document.getElementById("gallery");
 const titleEl = document.getElementById("title");
-const trashCan = document.getElementById("trashCan");
-let draggedEl = null;
-
 
 const lightbox = document.getElementById("lightbox");
 const content = document.getElementById("lightbox-content");
@@ -321,12 +314,6 @@ if(editMode){
   uploadDiv.style.display = "block";
   saveOrderBtn.style.display = "block";
   deleteBtnEl.style.display = "block";
-
-if(editMode){
-  trashCan.style.display = "block";
-} else {
-  trashCan.style.display = "none";
-}
 
   deleteItemBtn.style.display = "block";  
 } else {
@@ -514,67 +501,6 @@ async function loadGallery(){
     titleEl.textContent=data.title||username;
     pinCode=data.pin||"";
 
-    if(editMode){
-  enableDragToTrash();
-}
-
-if(editMode){
-  enableDragToTrash();
-}
-
-function enableDragToTrash(){
-  galleryEl.querySelectorAll("img, video").forEach(el=>{
-    el.setAttribute("draggable","true");
-
-    // Drag start
-    el.addEventListener("dragstart", e=>{
-      if(!editMode) e.preventDefault();
-      draggedEl = el;
-      e.dataTransfer.effectAllowed = "move";
-    });
-
-    // Drag end
-    el.addEventListener("dragend", e=>{
-      draggedEl = null;
-      trashCan.classList.remove("drag-over");
-    });
-
-    // For touch devices (optional)
-    if("ontouchstart" in window){
-      let touchStartX, touchStartY;
-      el.addEventListener("touchstart", e=>{
-        if(!editMode) return;
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-        draggedEl = el;
-      }, {passive:true});
-
-      el.addEventListener("touchmove", e=>{
-        if(!draggedEl) return;
-        const t = e.touches[0];
-        const r = trashCan.getBoundingClientRect();
-        if(t.clientX>r.left && t.clientX<r.right && t.clientY>r.top && t.clientY<r.bottom){
-          trashCan.classList.add("drag-over");
-        } else {
-          trashCan.classList.remove("drag-over");
-        }
-      }, {passive:true});
-
-      el.addEventListener("touchend", async e=>{
-        if(!draggedEl) return;
-        const t = e.changedTouches[0];
-        const r = trashCan.getBoundingClientRect();
-        if(t.clientX>r.left && t.clientX<r.right && t.clientY>r.top && t.clientY<r.bottom){
-          await deleteMedia(draggedEl);
-        }
-        trashCan.classList.remove("drag-over");
-        draggedEl = null;
-      });
-    }
-  });
-}
-
-
     media=data.items.sort((a,b)=>a.batch-b.batch||a.seq-b.seq).map(i=>({type:i.type, src:"media/"+i.stored}));
 
     galleryEl.innerHTML="";
@@ -593,23 +519,6 @@ media.forEach((f, i) => {
   el.onclick = () => show(i); // open lightbox on click
   galleryEl.appendChild(el);
 });
-
-async function deleteMedia(el){
-  if(!editMode) return alert("Enable edit mode first");
-  const src = el.src;
-  const filename = src.replace("media/","");
-  if(!confirm("Delete this item?")) return;
-
-  try{
-    const res = await fetch(`/api/deleteItem/${username}/${filename}`, {method:"DELETE"});
-    const data = await res.json();
-    if(data.error){ alert("Delete failed: " + data.error); return; }
-    loadGallery();
-  } catch(err){
-    alert("Delete failed — server did not respond");
-    console.error(err);
-  }
-}
 
     updateCounter();
 
