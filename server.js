@@ -173,10 +173,6 @@ app.post("/api/reorder/:user", (req, res) => {
   }
 });
 
-/* =========================================================
-   UPLOAD — ONLY PART ACTUALLY CHANGED
-   ========================================================= */
-
 app.post("/api/upload/:user", async (req, res) => {
   try {
     const user = req.params.user;
@@ -205,49 +201,50 @@ app.post("/api/upload/:user", async (req, res) => {
 
       let storedName = safeBase + ext;
 
+      // Move uploaded file to user folder
       await f.mv(path.join(dir, storedName));
 
-      /* 👉 ONLY NEW LOGIC — CONVERT VIDEO TO WEB SAFE MP4 */
-if ([".mov",".avi",".mkv"].includes(ext)) {
+      // Re-encode video if needed
+      if ([".mov", ".avi", ".mkv", ".mp4"].includes(ext)) {
+        const converted = safeBase + ".mp4";
 
-  const inputPath = path.join(dir, storedName);
-  const converted = safeBase + ".mp4";
-  const outputPath = path.join(dir, converted);
+        await new Promise((resolve, reject) => {
+          exec(
+            `ffmpeg -y -i "${path.join(dir, storedName)}" -c:v libx264 -preset ultrafast -crf 32 -c:a aac -b:a 96k -movflags +faststart "${path.join(dir, converted)}"`,
+            (err, stdout, stderr) => {
+              if (err) {
+                console.error("FFMPEG ERROR:", stderr);
+                reject(err);
+              } else {
+                resolve();
+              }
+            }
+          );
+        });
 
-  await new Promise((resolve, reject) => {
-    exec(
-      `ffmpeg -y -i "${inputPath}" -c copy -movflags +faststart "${outputPath}"`,
-      (err) => err ? reject(err) : resolve()
-    );
-  });
-
-  fs.unlinkSync(inputPath);
-  storedName = converted;
-}
-
+        fs.unlinkSync(path.join(dir, storedName));
+        storedName = converted;
+      }
 
       g.items.push({
         stored: storedName,
         batch,
         seq: i,
-        type: [".mp4",".mov",".avi",".mkv"].includes(ext)
-          ? "video"
-          : "image"
+        type: [".mp4", ".mov", ".avi", ".mkv"].includes(ext) ? "video" : "image",
       });
     }
 
     fs.writeFileSync(gp, JSON.stringify(g, null, 2));
 
     res.json({ success: true });
-
   } catch (err) {
     console.error("UPLOAD ERROR:", err);
-
     res.status(500).json({
-      error: "Upload failed — try fewer videos at once"
+      error: "Upload failed, try one video at a time",
     });
   }
 });
+
 
 /* =========================================================
    BASIC
