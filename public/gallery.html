@@ -406,10 +406,15 @@ function renderLightbox(){
 
   let el = f.type==="image"?document.createElement("img"):document.createElement("video");
   el.src=f.src;
-  if(f.type==="video"){
-    el.muted = true; el.loop = true; el.autoplay = true; el.playsInline = true;
-    el.setAttribute("playsinline",""); el.play && el.play().catch(()=>{});
-  }
+if(f.type==="video"){
+  el.muted = false;         // start unmuted
+  el.loop = false;          // don't loop automatically
+  el.autoplay = true;
+  el.playsInline = true;
+  el.controls = true;       // show play/pause and volume
+  el.setAttribute("playsinline","");
+  el.play && el.play().catch(()=>{});
+}
 
   el.addEventListener("pointerup", e=>{
     e.stopPropagation();
@@ -494,12 +499,21 @@ async function loadGallery(){
     media=data.items.sort((a,b)=>a.batch-b.batch||a.seq-b.seq).map(i=>({type:i.type, src:"media/"+i.stored}));
 
     galleryEl.innerHTML="";
-    media.forEach((f,i)=>{
-      let el=document.createElement(f.type==="image"?"img":"video"); el.src=f.src;
-      if(f.type==="video"){el.muted=true; el.loop=true; el.autoplay=true; el.playsInline=true; el.setAttribute("playsinline",""); el.play && el.play().catch(()=>{});}
-      el.onclick=()=>show(i);
-      galleryEl.appendChild(el);
-    });
+media.forEach((f,i)=>{
+  let el = document.createElement(f.type==="image" ? "img" : "video");
+  el.src = f.src;
+  if(f.type==="video"){
+    el.muted = true;        // muted in gallery
+    el.loop = true;         // loop
+    el.autoplay = true;     // autoplay
+    el.playsInline = true;
+    el.setAttribute("playsinline",""); 
+    el.controls = false;    // hide controls for thumbnail
+    el.play && el.play().catch(()=>{});
+  }
+  el.onclick = () => show(i); // open lightbox on click
+  galleryEl.appendChild(el);
+});
 
     updateCounter();
 
