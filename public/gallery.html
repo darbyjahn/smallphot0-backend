@@ -48,11 +48,13 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 #title{text-align:center;margin:4px 0 8px 0}
 
 /* GRID */
+
 .gallery {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 14px;
+  max-width: 1100px;     /* ← desktop width */
+  margin: 0 auto;        /* ← centers it */
+  padding: 14px;         /* ← SINGLE knob */
 }
+
 .gallery img,
 .gallery video{
   width:100%;
@@ -68,37 +70,56 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 .sortable-chosen{transform:scale(1.03)}
 
 /* LIGHTBOX */
+
 :root {
-  --lightbox-pad: 24px;
-  --lightbox-max: 92vh;
+  --lightbox-pad: 24px;     /* ← YOUR MAIN KNOB */
+  --lightbox-max: 92vh;     /* ← how big image can get */
 }
+
 #lightbox {
   display: none;
   position: fixed;
   inset: 0;
+
   background: rgba(0,0,0,.92);
+
   padding: var(--lightbox-pad);
   box-sizing: border-box;
+
+  display: none;
   justify-content: center;
   align-items: center;
 }
+
 #lightbox-content {
   display: grid;
   place-items: center;
+
   max-width: 100%;
   max-height: 100%;
+
   width: auto;
   height: auto;
 }
+
+/* THE ONLY RULE THAT SIZES MEDIA */
 #lightbox-content img,
 #lightbox-content video {
+
+  /* never crop */
   object-fit: contain;
+
+  /* size logic */
   max-width: min(1400px, 100%);
   max-height: var(--lightbox-max);
+
+  /* important reset */
   width: auto;
   height: auto;
+
   border-radius: 6px;
 }
+
 @media (max-width: 700px) {
   :root {
     --lightbox-pad: 14px;
@@ -181,29 +202,9 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 
 /* UPLOAD section hidden in view mode */
 .upload{display:none;}
-.upload input, .upload button{margin:4px}
-
-/* TRASH CAN */
-#trashCan {
-  display: none;
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  width: 60px;
-  max-width: 10vw;
-  cursor: pointer;
-  z-index:3000;
-  transition: transform 0.2s ease;
+.upload input, .upload button{
+  margin:4px;
 }
-#trashCan.drag-over { transform: scale(1.3); }
-@keyframes rattle {
-  0% { transform: rotate(0deg); }
-  25% { transform: rotate(-15deg); }
-  50% { transform: rotate(15deg); }
-  75% { transform: rotate(-10deg); }
-  100% { transform: rotate(0deg); }
-}
-#trashCan.rattle { animation: rattle 0.3s ease; }
 </style>
 </head>
 
@@ -211,6 +212,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 
 <div class="header">
   <button id="backBtn">ALL GALLERIES</button>
+
   <div class="header-column">
     <button id="editModeBtn" class="viewMode">Edit</button>
     <button id="deleteBtn" style="display:none;">DELETE GALLERY</button>
@@ -218,9 +220,6 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 </div>
 
 <h1 id="title"></h1>
-
-<!-- TRASH CAN -->
-<img id="trashCan" src="/trash.png" alt="Trash" />
 
 <div class="upload">
   <input type="file" id="files" multiple>
@@ -235,12 +234,14 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 <button id="saveOrderBtn">Save Order</button>
 
 <div class="gallery" id="gallery"></div>
+
 <div id="counter"></div>
 
 <!-- LIGHTBOX -->
 <div id="lightbox" aria-hidden="true">
   <div id="prev" class="nav">‹</div>
   <div id="next" class="nav">›</div>
+
   <button id="deleteItemBtn" style="display:none;">DELETE</button>
   <div id="lightbox-content"></div>
 </div>
@@ -251,155 +252,234 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 let username = location.pathname.split("/")[2];
 const galleryEl = document.getElementById("gallery");
 const titleEl = document.getElementById("title");
+
 const lightbox = document.getElementById("lightbox");
 const content = document.getElementById("lightbox-content");
+
 const progressWrap = document.getElementById("progressWrap");
 const progressBar = document.getElementById("progressBar");
 const progressText = document.getElementById("progressText");
+
 const counter = document.getElementById("counter");
 const toggleEditBtn = document.getElementById("editModeBtn");
 const saveOrderBtn = document.getElementById("saveOrderBtn");
 const uploadDiv = document.querySelector(".upload");
 const deleteBtnEl = document.getElementById("deleteBtn");
-const deleteItemBtn = document.getElementById("deleteItemBtn");
-const trashCan = document.getElementById("trashCan");
 
-let media=[], index=0, isTouch = "ontouchstart" in window || navigator.maxTouchPoints>0;
-let editMode=false, sortableInstance=null, draggedEl=null;
-let pinCode="", overridePin="1469";
+let media=[];
+let index=0;
+let isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+let editMode = false;
+let sortableInstance = null;
+let pinCode = ""; // per-gallery PIN
+const overridePin = "1469"; // override code
 
 /* NAV */
-document.getElementById("backBtn").onclick = ()=>location.href="/";
+backBtn.onclick=()=>location.href="/";
 
-/* TOGGLE EDIT MODE */
+/* Toggle Edit Mode Button */
 toggleEditBtn.onclick = async () => {
   if(!editMode){
+    // entering edit mode
     if(!pinCode){
-      let newPin = prompt("Pick a 4-digit PIN:");
-      if(!newPin || !/^[0-9A-Za-z]{4}$/.test(newPin)){ alert("Invalid PIN"); return; }
-      pinCode=newPin;
+      // first time: ask user to pick a pin
+      let newPin = prompt("Pick a pin. Don't forget.:");
+      if(!newPin || !/^[0-9A-Za-z]{4}$/.test(newPin)){
+        alert("Invalid PIN. Ur mom a hoe.");
+        return;
+      }
+      pinCode = newPin;
+      // save pin to gallery.json
       await fetch(`/api/setPin/${username}`,{
-        method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pin:pinCode})
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({pin: pinCode})
       });
     } else {
-      let input = prompt("Enter 4-digit PIN:");
-      if(input !== pinCode && input !== overridePin){ alert("Incorrect PIN"); return; }
+      // existing gallery: prompt for pin
+      let input = prompt("Enter 4-digit PIN.:");
+      if(input !== pinCode && input !== overridePin){
+        alert("Incorrect PIN. Do better");
+        return;
+      }
     }
   }
-  editMode=!editMode;
-  toggleEditBtn.textContent=editMode?"View":"Edit";
-  toggleEditBtn.className = editMode?"editMode":"viewMode";
-  uploadDiv.style.display = editMode?"block":"none";
-  saveOrderBtn.style.display = editMode?"block":"none";
-  deleteBtnEl.style.display = editMode?"block":"none";
-  deleteItemBtn.style.display = editMode?"block":"none";
-  trashCan.style.display = editMode?"block":"none";
+  editMode = !editMode;
+
+if(editMode){
+  toggleEditBtn.textContent = "View";
+  toggleEditBtn.classList.remove("viewMode");
+  toggleEditBtn.classList.add("editMode");
+
+  uploadDiv.style.display = "block";
+  saveOrderBtn.style.display = "block";
+  deleteBtnEl.style.display = "block";
+
+  deleteItemBtn.style.display = "block";  
+} else {
+  toggleEditBtn.textContent = "Edit";
+  toggleEditBtn.classList.remove("editMode");
+  toggleEditBtn.classList.add("viewMode");
+
+  uploadDiv.style.display = "none";
+  saveOrderBtn.style.display = "none";
+  deleteBtnEl.style.display = "none";
+
+  deleteItemBtn.style.display = "none";    
+}
+
+
   loadGallery();
 };
 
 /* DELETE GALLERY */
-deleteBtnEl.onclick = async ()=>{
+deleteBtnEl.onclick=async()=>{
   if(!editMode) return alert("Enable edit mode first");
   if(!confirm("Delete this gallery?")) return;
-  try{ await fetch(`/api/delete/${username}`, {method:"DELETE"}); location.href="/"; }
-  catch(e){ alert("Delete failed"); console.error(e); }
+  try { await fetch(`/api/delete/${username}`,{method:"DELETE"}); location.href="/"; }
+  catch(e){ alert("Delete failed"); console.error(e);}
 };
 
-/* UPLOAD */
+/* UPLOAD WITH BAR */
 function upload(){
   if(!editMode) return alert("Enable edit mode first");
   const files=document.getElementById("files").files;
-  if(!files.length) return alert("Select files");
+  if(!files.length)return alert("Select files");
+
   const fd=new FormData();
-  for(let f of files) fd.append("files",f);
+  for(let f of files)fd.append("files",f);
+
   const xhr=new XMLHttpRequest();
-  xhr.open("POST", `/api/upload/${username}`);
+  xhr.open("POST",`/api/upload/${username}`);
+
   progressWrap.style.display="block";
-  progressBar.style.width="0%"; progressText.textContent="Starting upload...";
+  progressBar.style.width="0%";
+  progressText.textContent="Starting upload...";
+
   xhr.upload.onprogress=e=>{
     if(e.lengthComputable){
-      let p=Math.round(e.loaded/e.total*100);
+      const p=Math.round(e.loaded/e.total*100);
       progressBar.style.width=p+"%";
       progressText.textContent=`Uploading: ${p}%`;
     }
   };
+
   xhr.onload=()=>{
-    if(xhr.status!==200){ progressText.textContent="Try one at a time for videos."; alert("Upload failed"); return; }
-    progressBar.style.width="100%"; progressText.textContent="Processing complete ✅";
-    setTimeout(()=>{progressWrap.style.display="none"; progressText.textContent="";},1200);
+    if(xhr.status!==200){
+      progressText.textContent="Try one at a time for videos. ";
+      return alert("Upload failed — videos work better one at a time");
+    }
+
+    progressBar.style.width="100%";
+    progressText.textContent="Processing complete ✅";
+    setTimeout(()=>{ progressWrap.style.display="none"; progressText.textContent=""; },1200);
     loadGallery();
   };
-  xhr.onerror = ()=>{ alert("Upload failed"); progressText.textContent="Try one at a time — videos are heavy 🙃"; };
+  xhr.onerror=()=>{ progressText.textContent="Try one at a time — videos are heavy 🙃"; alert("Upload failed"); };
   xhr.send(fd);
 }
 
-/* LIGHTBOX */
-function closeLightbox(){ lightbox.style.display="none"; lightbox.setAttribute("aria-hidden","true"); }
-lightbox.addEventListener("click", e=>{ if(!content.contains(e.target)) closeLightbox(); });
-
-function show(i){
-  index=i; renderLightbox();
-  lightbox.style.display="flex"; lightbox.setAttribute("aria-hidden","false");
-  deleteItemBtn.style.display=editMode?"block":"none";
+function closeLightbox(){
+  lightbox.style.display = "none";
+  lightbox.setAttribute("aria-hidden","true");
 }
-function renderLightbox(){
-  content.innerHTML=""; const f=media[index]; if(!f) return;
-  let el = f.type==="image"?document.createElement("img"):document.createElement("video");
-  el.src=f.src;
-  if(f.type==="video"){
-    el.muted=false; el.loop=false; el.autoplay=true; el.playsInline=true; el.controls=true;
-    el.setAttribute("playsinline",""); el.play().catch(()=>{});
+
+lightbox.addEventListener("click", function(e){
+  if(!content.contains(e.target)){
+    closeLightbox();
   }
-  el.addEventListener("pointerup", e=>{
+});
+
+/* LIGHTBOX */
+function show(i){
+  index=i;
+  renderLightbox();
+  lightbox.style.display="flex";
+  lightbox.setAttribute("aria-hidden","false");
+
+  deleteItemBtn.style.display = editMode ? "block" : "none";
+}
+
+function renderLightbox() {
+  content.innerHTML = "";
+  const f = media[index]; if(!f) return;
+
+  let el = f.type === "image" ? document.createElement("img") : document.createElement("video");
+  el.src = f.src;
+
+  if (f.type === "video") {
+    el.muted = false;           // unmuted by default
+    el.loop = false;            // optional, user controls playback
+    el.autoplay = true;         
+    el.playsInline = true;
+    el.controls = true;         // show play/pause/volume
+    el.setAttribute("playsinline", "");
+    el.play().catch(() => {});
+  }
+
+  // Tap to toggle mute (optional)
+  el.addEventListener("pointerup", e => {
     e.stopPropagation();
-    const rect=el.getBoundingClientRect(), x=e.clientX-rect.left, w=rect.width||window.innerWidth;
-    if(x<w*0.25) navigate(-1);
-    else if(x>w*0.75) navigate(1);
-    else if(f.type==="video") el.muted=!el.muted;
+    const rect = el.getBoundingClientRect(),
+          x = e.clientX - rect.left,
+          w = rect.width || window.innerWidth;
+    const leftEdge = w * 0.25, rightEdge = w * 0.75;
+    if (x < leftEdge) navigate(-1);
+    else if (x > rightEdge) navigate(1);
+    else if (f.type === "video") el.muted = !el.muted; // toggle mute on center tap
   });
-  el.addEventListener("touchstart", e=>e.stopPropagation(), {passive:true});
+
+  el.addEventListener("touchstart", e => e.stopPropagation(), { passive: true });
   content.appendChild(el);
 }
 
-/* SWIPE */
+
+/* Swipe */
 let startX=null;
-lightbox.addEventListener("touchstart", e=>{ if(e.touches.length===1) startX=e.touches[0].clientX; }, {passive:true});
-lightbox.addEventListener("touchend", e=>{
+lightbox.addEventListener("touchstart",e=>{if(e.touches.length===1) startX=e.touches[0].clientX;},{passive:true});
+lightbox.addEventListener("touchend",e=>{
   if(startX===null) return;
-  const dx = e.changedTouches[0].clientX - startX;
+  const dx=e.changedTouches[0].clientX-startX;
   if(Math.abs(dx)>40) navigate(dx>0?-1:1);
   startX=null;
-}, {passive:true});
+},{passive:true});
+
 function navigate(d){ index=(index+d+media.length)%media.length; renderLightbox(); }
-document.getElementById("prev").onclick=e=>{ e.stopPropagation(); navigate(-1); };
-document.getElementById("next").onclick=e=>{ e.stopPropagation(); navigate(1); };
+prev.onclick=e=>{e.stopPropagation(); navigate(-1);};
+next.onclick=e=>{e.stopPropagation(); navigate(1);};
 document.addEventListener("keydown", e=>{
   if(lightbox.style.display!=="flex") return;
   if(e.key==="ArrowLeft") navigate(-1);
   if(e.key==="ArrowRight") navigate(1);
-  if(e.key==="Escape") closeLightbox();
+  if(e.key==="Escape"){
+    closeLightbox();
+  }
 });
 
-/* DELETE LIGHTBOX ITEM */
+
+/* DELETE ITEM */
 deleteItemBtn.onclick=async()=>{
   if(!editMode) return alert("Enable edit mode first");
   const f=media[index]; if(!f) return;
   if(!confirm("Delete this item?")) return;
   const filename=f.src.replace("media/","");
   try{
-    const res=await fetch(`/api/deleteItem/${username}/${filename}`, {method:"DELETE"});
+    const res=await fetch(`/api/deleteItem/${username}/${filename}`,{method:"DELETE"});
     const data=await res.json();
     if(data.error){ alert("Delete failed: "+data.error); return; }
-    closeLightbox(); loadGallery();
-  }catch(e){ alert("Delete failed — server did not respond"); console.error(e); }
+    closeLightbox();
+    loadGallery();
+  } catch(err){ alert("Delete failed — server did not respond"); console.error(err); }
 };
 
 /* SAVE ORDER */
-saveOrderBtn.onclick = async ()=>{
+saveOrderBtn.onclick = async () => {
   if(!editMode) return alert("Enable edit mode first");
   const order=[...galleryEl.children].map(c=>media.find(m=>m.src===c.src).src);
-  try{ await fetch(`/api/reorder/${username}`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({order})}); alert("Order saved ✅"); loadGallery(); }
-  catch(e){ alert("Failed to save order"); console.error(e); }
+  try{
+    await fetch(`/api/reorder/${username}`,{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({order})});
+    alert("Order saved ✅"); loadGallery();
+  }catch(e){ alert("Failed to save order"); console.error(e); }
 };
 
 /* COUNTER */
@@ -409,65 +489,44 @@ function updateCounter(){
   counter.textContent=`Photos: ${photos} • Videos: ${videos} • Total: ${media.length}`;
 }
 
-/* TRASHCAN DRAG TO DELETE */
-function enableDragToTrash(){
-  galleryEl.querySelectorAll("img, video").forEach(el=>{
-    el.setAttribute("draggable","true");
-    el.addEventListener("dragstart", e=>{ if(!editMode) e.preventDefault(); draggedEl=el; e.dataTransfer.effectAllowed="move"; });
-    el.addEventListener("dragend", e=>{ draggedEl=null; trashCan.classList.remove("drag-over"); });
-
-    if(isTouch){
-      let touchStartX, touchStartY;
-      el.addEventListener("touchstart", e=>{ if(!editMode) return; touchStartX=e.touches[0].clientX; touchStartY=e.touches[0].clientY; draggedEl=el; }, {passive:true});
-      el.addEventListener("touchmove", e=>{
-        if(!draggedEl) return;
-        const t=e.touches[0], r=trashCan.getBoundingClientRect();
-        if(t.clientX>r.left && t.clientX<r.right && t.clientY>r.top && t.clientY<r.bottom) trashCan.classList.add("drag-over");
-        else trashCan.classList.remove("drag-over");
-      }, {passive:true});
-      el.addEventListener("touchend", async e=>{
-        if(!draggedEl) return;
-        const t=e.changedTouches[0], r=trashCan.getBoundingClientRect();
-        if(t.clientX>r.left && t.clientX<r.right && t.clientY>r.top && t.clientY<r.bottom) await deleteMedia(draggedEl);
-        trashCan.classList.remove("drag-over"); draggedEl=null;
-      });
-    }
-  });
-}
-
-trashCan.addEventListener("dragover", e=>{ e.preventDefault(); trashCan.classList.add("drag-over"); });
-trashCan.addEventListener("dragleave", e=>{ trashCan.classList.remove("drag-over"); });
-trashCan.addEventListener("drop", async e=>{ e.preventDefault(); if(draggedEl) await deleteMedia(draggedEl); trashCan.classList.remove("drag-over"); draggedEl=null; });
-
-async function deleteMedia(el){
-  const src=el.src, filename=src.replace("media/","");
-  if(!confirm("Delete this item?")) return;
-  try{
-    const res = await fetch(`/api/deleteItem/${username}/${filename}`, {method:"DELETE"});
-    const data = await res.json();
-    if(data.error){ alert("Delete failed: "+data.error); return; }
-    trashCan.classList.add("rattle"); setTimeout(()=>trashCan.classList.remove("rattle"),400);
-    loadGallery();
-  } catch(e){ alert("Delete failed — server did not respond"); console.error(e); }
-}
-
-/* LOAD GALLERY */
-const origLoadGallery = loadGallery;
+/* LOAD */
 async function loadGallery(){
   try{
     const res=await fetch(`/galleries/${username}/gallery.json?`+Date.now());
     if(!res.ok){ galleryEl.innerHTML="<p>Unable to load gallery — try refreshing</p>"; return; }
     const data=await res.json();
+
     document.body.style.background=data.bg_color||"";
     document.body.style.color=data.text_color||"";
     titleEl.textContent=data.title||username;
     pinCode=data.pin||"";
+
     media=data.items.sort((a,b)=>a.batch-b.batch||a.seq-b.seq).map(i=>({type:i.type, src:"media/"+i.stored}));
+
     galleryEl.innerHTML="";
-    media.forEach((f,i)=>{
-      let el = f.type==="image"?document.createElement("img"):document.createElement("video");
-      el.src=f.src;
-     
+media.forEach((f, i) => {
+  let el = document.createElement(f.type === "image" ? "img" : "video");
+  el.src = f.src;
+  if (f.type === "video") {
+    el.muted = true;          // muted in gallery
+    el.loop = true;           // loop thumbnail
+    el.autoplay = true;       // autoplay
+    el.playsInline = true;    // mobile
+    el.controls = false;      // hide controls in thumbnail
+    el.setAttribute("playsinline", ""); 
+    el.play().catch(() => {}); // ensure it tries to play
+  }
+  el.onclick = () => show(i); // open lightbox on click
+  galleryEl.appendChild(el);
+});
+
+    updateCounter();
+
+    if(sortableInstance) sortableInstance.destroy();
+    if(editMode) sortableInstance = Sortable.create(galleryEl,{animation:150});
+  } catch(err){ console.error(err); galleryEl.innerHTML="<p>Unable to load gallery — try refreshing</p>"; }
+}
+
 loadGallery();
 </script>
 </body>
