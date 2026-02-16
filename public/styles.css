@@ -12,10 +12,10 @@ body {
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
+  gap: 15px;
   padding: 12px var(--gallery-side) var(--gallery-bottom) var(--gallery-side);
   width: 100%;
-  max-width: 1600px;
+  max-width: 1800px;
   margin-left: auto;
   margin-right: auto;
   box-sizing: border-box;
