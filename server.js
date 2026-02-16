@@ -34,7 +34,7 @@ app.use(
   fileUpload({
     useTempFiles: true,
     tempFileDir: "/tmp/",
-    limits: { fileSize: 1024 * 1024 * 300 }
+    limits: { fileSize: 1024 * 1024 * 150 }
   })
 );
 
@@ -208,20 +208,23 @@ app.post("/api/upload/:user", async (req, res) => {
       await f.mv(path.join(dir, storedName));
 
       /* 👉 ONLY NEW LOGIC — CONVERT VIDEO TO WEB SAFE MP4 */
-      if ([".mov",".avi",".mkv",".mp4"].includes(ext)) {
+if ([".mov",".avi",".mkv"].includes(ext)) {
 
-        const converted = safeBase + ".mp4";
+  const inputPath = path.join(dir, storedName);
+  const converted = safeBase + ".mp4";
+  const outputPath = path.join(dir, converted);
 
-        await new Promise((resolve, reject) => {
-          exec(
-            `ffmpeg -i "${path.join(dir, storedName)}" -c:v libx264 -pix_fmt yuv420p -movflags +faststart "${path.join(dir, converted)}"`,
-            (err) => err ? reject(err) : resolve()
-          );
-        });
+  await new Promise((resolve, reject) => {
+    exec(
+      `ffmpeg -y -i "${inputPath}" -c copy -movflags +faststart "${outputPath}"`,
+      (err) => err ? reject(err) : resolve()
+    );
+  });
 
-        fs.unlinkSync(path.join(dir, storedName));
-        storedName = converted;
-      }
+  fs.unlinkSync(inputPath);
+  storedName = converted;
+}
+
 
       g.items.push({
         stored: storedName,
