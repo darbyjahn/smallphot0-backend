@@ -48,11 +48,10 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 #title{text-align:center;margin:4px 0 8px 0}
 
 /* GRID */
-
 .gallery {
-  max-width: 1100px;     /* ← desktop width */
-  margin: 0 auto;        /* ← centers it */
-  padding: 14px;         /* ← SINGLE knob */
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 14px;
 }
 
 .gallery img,
@@ -70,23 +69,18 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 .sortable-chosen{transform:scale(1.03)}
 
 /* LIGHTBOX */
-
 :root {
-  --lightbox-pad: 24px;     /* ← YOUR MAIN KNOB */
-  --lightbox-max: 92vh;     /* ← how big image can get */
+  --lightbox-pad: 24px;
+  --lightbox-max: 92vh;
 }
 
 #lightbox {
   display: none;
   position: fixed;
   inset: 0;
-
   background: rgba(0,0,0,.92);
-
   padding: var(--lightbox-pad);
   box-sizing: border-box;
-
-  display: none;
   justify-content: center;
   align-items: center;
 }
@@ -94,29 +88,19 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 #lightbox-content {
   display: grid;
   place-items: center;
-
   max-width: 100%;
   max-height: 100%;
-
   width: auto;
   height: auto;
 }
 
-/* THE ONLY RULE THAT SIZES MEDIA */
 #lightbox-content img,
 #lightbox-content video {
-
-  /* never crop */
   object-fit: contain;
-
-  /* size logic */
   max-width: min(1400px, 100%);
   max-height: var(--lightbox-max);
-
-  /* important reset */
   width: auto;
   height: auto;
-
   border-radius: 6px;
 }
 
@@ -205,6 +189,11 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 .upload input, .upload button{
   margin:4px;
 }
+
+/* TRASH CAN */
+#trashCan.drag-over{
+  filter: drop-shadow(0 0 8px red);
+}
 </style>
 </head>
 
@@ -220,6 +209,9 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 </div>
 
 <h1 id="title"></h1>
+
+<!-- TRASH CAN -->
+<img id="trashCan" src="/trash.png" alt="Trash" style="display:none; position:fixed; top:10px; right:10px; width:60px; cursor:pointer; z-index:3000;">
 
 <div class="upload">
   <input type="file" id="files" multiple>
@@ -241,7 +233,6 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 <div id="lightbox" aria-hidden="true">
   <div id="prev" class="nav">‹</div>
   <div id="next" class="nav">›</div>
-
   <button id="deleteItemBtn" style="display:none;">DELETE</button>
   <div id="lightbox-content"></div>
 </div>
@@ -252,6 +243,8 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 let username = location.pathname.split("/")[2];
 const galleryEl = document.getElementById("gallery");
 const titleEl = document.getElementById("title");
+const trashCan = document.getElementById("trashCan");
+let draggedEl = null;
 
 const lightbox = document.getElementById("lightbox");
 const content = document.getElementById("lightbox-content");
@@ -271,262 +264,318 @@ let index=0;
 let isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
 let editMode = false;
 let sortableInstance = null;
-let pinCode = ""; // per-gallery PIN
-const overridePin = "1469"; // override code
+let pinCode = "";
+const overridePin = "1469";
 
-/* NAV */
-backBtn.onclick=()=>location.href="/";
+// NAV
+backBtn.onclick = () => location.href="/";
 
-/* Toggle Edit Mode Button */
+// --- EDIT MODE TOGGLE ---
 toggleEditBtn.onclick = async () => {
   if(!editMode){
-    // entering edit mode
     if(!pinCode){
-      // first time: ask user to pick a pin
-      let newPin = prompt("Pick a pin. Don't forget.:");
+      let newPin = prompt("Pick a 4-digit PIN (don’t forget):");
       if(!newPin || !/^[0-9A-Za-z]{4}$/.test(newPin)){
-        alert("Invalid PIN. Ur mom a hoe.");
+        alert("Invalid PIN.");
         return;
       }
       pinCode = newPin;
-      // save pin to gallery.json
       await fetch(`/api/setPin/${username}`,{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({pin: pinCode})
       });
     } else {
-      // existing gallery: prompt for pin
-      let input = prompt("Enter 4-digit PIN.:");
+      let input = prompt("Enter 4-digit PIN:");
       if(input !== pinCode && input !== overridePin){
-        alert("Incorrect PIN. Do better");
+        alert("Incorrect PIN");
         return;
       }
     }
   }
   editMode = !editMode;
 
-if(editMode){
-  toggleEditBtn.textContent = "View";
-  toggleEditBtn.classList.remove("viewMode");
-  toggleEditBtn.classList.add("editMode");
+  toggleEditBtn.textContent = editMode ? "View" : "Edit";
+  toggleEditBtn.classList.toggle("viewMode", !editMode);
+  toggleEditBtn.classList.toggle("editMode", editMode);
 
-  uploadDiv.style.display = "block";
-  saveOrderBtn.style.display = "block";
-  deleteBtnEl.style.display = "block";
-
-  deleteItemBtn.style.display = "block";  
-} else {
-  toggleEditBtn.textContent = "Edit";
-  toggleEditBtn.classList.remove("editMode");
-  toggleEditBtn.classList.add("viewMode");
-
-  uploadDiv.style.display = "none";
-  saveOrderBtn.style.display = "none";
-  deleteBtnEl.style.display = "none";
-
-  deleteItemBtn.style.display = "none";    
-}
-
+  uploadDiv.style.display = editMode ? "block" : "none";
+  saveOrderBtn.style.display = editMode ? "block" : "none";
+  deleteBtnEl.style.display = editMode ? "block" : "none";
+  deleteItemBtn.style.display = editMode ? "block" : "none";
+  trashCan.style.display = editMode ? "block" : "none";
 
   loadGallery();
 };
 
-/* DELETE GALLERY */
-deleteBtnEl.onclick=async()=>{
+// --- DELETE GALLERY ---
+deleteBtnEl.onclick = async () => {
   if(!editMode) return alert("Enable edit mode first");
   if(!confirm("Delete this gallery?")) return;
   try { await fetch(`/api/delete/${username}`,{method:"DELETE"}); location.href="/"; }
   catch(e){ alert("Delete failed"); console.error(e);}
 };
 
-/* UPLOAD WITH BAR */
+// --- UPLOAD ---
 function upload(){
   if(!editMode) return alert("Enable edit mode first");
-  const files=document.getElementById("files").files;
-  if(!files.length)return alert("Select files");
+  const files = document.getElementById("files").files;
+  if(!files.length) return alert("Select files");
 
-  const fd=new FormData();
-  for(let f of files)fd.append("files",f);
+  const fd = new FormData();
+  for(let f of files) fd.append("files", f);
 
-  const xhr=new XMLHttpRequest();
-  xhr.open("POST",`/api/upload/${username}`);
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", `/api/upload/${username}`);
 
   progressWrap.style.display="block";
   progressBar.style.width="0%";
   progressText.textContent="Starting upload...";
 
-  xhr.upload.onprogress=e=>{
+  xhr.upload.onprogress = e => {
     if(e.lengthComputable){
-      const p=Math.round(e.loaded/e.total*100);
-      progressBar.style.width=p+"%";
-      progressText.textContent=`Uploading: ${p}%`;
+      const p = Math.round(e.loaded/e.total*100);
+      progressBar.style.width = p + "%";
+      progressText.textContent = `Uploading: ${p}%`;
     }
   };
 
-  xhr.onload=()=>{
+  xhr.onload = () => {
     if(xhr.status!==200){
-      progressText.textContent="Try one at a time for videos. ";
+      progressText.textContent="Try one at a time for videos.";
       return alert("Upload failed — videos work better one at a time");
     }
-
     progressBar.style.width="100%";
     progressText.textContent="Processing complete ✅";
     setTimeout(()=>{ progressWrap.style.display="none"; progressText.textContent=""; },1200);
     loadGallery();
   };
-  xhr.onerror=()=>{ progressText.textContent="Try one at a time — videos are heavy 🙃"; alert("Upload failed"); };
+
+  xhr.onerror = () => { progressText.textContent="Upload failed"; alert("Upload failed"); };
   xhr.send(fd);
 }
 
+// --- LIGHTBOX ---
 function closeLightbox(){
   lightbox.style.display = "none";
   lightbox.setAttribute("aria-hidden","true");
 }
 
-lightbox.addEventListener("click", function(e){
-  if(!content.contains(e.target)){
-    closeLightbox();
-  }
+lightbox.addEventListener("click", e => {
+  if(!content.contains(e.target)) closeLightbox();
 });
 
-/* LIGHTBOX */
 function show(i){
   index=i;
   renderLightbox();
   lightbox.style.display="flex";
   lightbox.setAttribute("aria-hidden","false");
-
   deleteItemBtn.style.display = editMode ? "block" : "none";
 }
 
-function renderLightbox() {
+function renderLightbox(){
   content.innerHTML = "";
   const f = media[index]; if(!f) return;
-
-  let el = f.type === "image" ? document.createElement("img") : document.createElement("video");
+  let el = f.type==="image"?document.createElement("img"):document.createElement("video");
   el.src = f.src;
-
-  if (f.type === "video") {
-    el.muted = false;           // unmuted by default
-    el.loop = false;            // optional, user controls playback
-    el.autoplay = true;         
-    el.playsInline = true;
-    el.controls = true;         // show play/pause/volume
-    el.setAttribute("playsinline", "");
-    el.play().catch(() => {});
+  if(f.type==="video"){
+    el.muted=false;
+    el.loop=false;
+    el.autoplay=true;
+    el.playsInline=true;
+    el.controls=true;
+    el.setAttribute("playsinline","");
+    el.play().catch(()=>{});
   }
 
-  // Tap to toggle mute (optional)
-  el.addEventListener("pointerup", e => {
+  el.addEventListener("pointerup", e=>{
     e.stopPropagation();
-    const rect = el.getBoundingClientRect(),
-          x = e.clientX - rect.left,
-          w = rect.width || window.innerWidth;
-    const leftEdge = w * 0.25, rightEdge = w * 0.75;
-    if (x < leftEdge) navigate(-1);
-    else if (x > rightEdge) navigate(1);
-    else if (f.type === "video") el.muted = !el.muted; // toggle mute on center tap
+    const rect = el.getBoundingClientRect(), x=e.clientX-rect.left, w=rect.width||window.innerWidth;
+    const leftEdge=w*0.25, rightEdge=w*0.75;
+    if(x<leftEdge) navigate(-1);
+    else if(x>rightEdge) navigate(1);
+    else if(f.type==="video") el.muted = !el.muted;
   });
 
-  el.addEventListener("touchstart", e => e.stopPropagation(), { passive: true });
+  el.addEventListener("touchstart", e=>e.stopPropagation(), {passive:true});
   content.appendChild(el);
 }
 
-
-/* Swipe */
-let startX=null;
-lightbox.addEventListener("touchstart",e=>{if(e.touches.length===1) startX=e.touches[0].clientX;},{passive:true});
-lightbox.addEventListener("touchend",e=>{
+let startX = null;
+lightbox.addEventListener("touchstart", e=>{if(e.touches.length===1) startX=e.touches[0].clientX;},{passive:true});
+lightbox.addEventListener("touchend", e=>{
   if(startX===null) return;
-  const dx=e.changedTouches[0].clientX-startX;
+  const dx = e.changedTouches[0].clientX - startX;
   if(Math.abs(dx)>40) navigate(dx>0?-1:1);
-  startX=null;
+  startX = null;
 },{passive:true});
 
 function navigate(d){ index=(index+d+media.length)%media.length; renderLightbox(); }
-prev.onclick=e=>{e.stopPropagation(); navigate(-1);};
-next.onclick=e=>{e.stopPropagation(); navigate(1);};
+prev.onclick = e=>{e.stopPropagation(); navigate(-1);};
+next.onclick = e=>{e.stopPropagation(); navigate(1);};
 document.addEventListener("keydown", e=>{
   if(lightbox.style.display!=="flex") return;
   if(e.key==="ArrowLeft") navigate(-1);
   if(e.key==="ArrowRight") navigate(1);
-  if(e.key==="Escape"){
-    closeLightbox();
-  }
+  if(e.key==="Escape") closeLightbox();
 });
 
-
-/* DELETE ITEM */
-deleteItemBtn.onclick=async()=>{
+// --- DELETE ITEM ---
+deleteItemBtn.onclick = async () => {
   if(!editMode) return alert("Enable edit mode first");
-  const f=media[index]; if(!f) return;
+  const f = media[index]; if(!f) return;
   if(!confirm("Delete this item?")) return;
-  const filename=f.src.replace("media/","");
+  const filename = f.src.replace("media/","");
   try{
-    const res=await fetch(`/api/deleteItem/${username}/${filename}`,{method:"DELETE"});
-    const data=await res.json();
+    const res = await fetch(`/api/deleteItem/${username}/${filename}`, {method:"DELETE"});
+    const data = await res.json();
     if(data.error){ alert("Delete failed: "+data.error); return; }
     closeLightbox();
     loadGallery();
   } catch(err){ alert("Delete failed — server did not respond"); console.error(err); }
 };
 
-/* SAVE ORDER */
+// --- SAVE ORDER ---
 saveOrderBtn.onclick = async () => {
   if(!editMode) return alert("Enable edit mode first");
-  const order=[...galleryEl.children].map(c=>media.find(m=>m.src===c.src).src);
+  const order = [...galleryEl.children].map(c=>media.find(m=>m.src===c.src).src);
   try{
-    await fetch(`/api/reorder/${username}`,{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({order})});
-    alert("Order saved ✅"); loadGallery();
-  }catch(e){ alert("Failed to save order"); console.error(e); }
+    await fetch(`/api/reorder/${username}`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({order})});
+    alert("Order saved ✅");
+    loadGallery();
+  } catch(e){ alert("Failed to save order"); console.error(e);}
 };
 
-/* COUNTER */
+// --- COUNTER ---
 function updateCounter(){
-  const photos=media.filter(m=>m.type==="image").length;
-  const videos=media.filter(m=>m.type==="video").length;
+  const photos = media.filter(m=>m.type==="image").length;
+  const videos = media.filter(m=>m.type==="video").length;
   counter.textContent=`Photos: ${photos} • Videos: ${videos} • Total: ${media.length}`;
 }
 
-/* LOAD */
+// --- DRAG TO TRASH ---
+function enableDragToTrash(){
+  galleryEl.querySelectorAll("img, video").forEach(el=>{
+    el.setAttribute("draggable","true");
+
+    // Drag start
+    el.addEventListener("dragstart", e=>{
+      if(!editMode) e.preventDefault();
+      draggedEl = el;
+      e.dataTransfer.effectAllowed = "move";
+    });
+
+    el.addEventListener("dragend", e=>{
+      draggedEl=null;
+      trashCan.classList.remove("drag-over");
+    });
+
+    // Touch devices
+    if(isTouch){
+      let touchStartX, touchStartY;
+      el.addEventListener("touchstart", e=>{
+        if(!editMode) return;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        draggedEl = el;
+      }, {passive:true});
+
+      el.addEventListener("touchmove", e=>{
+        if(!draggedEl) return;
+        const t=e.touches[0];
+        const r=trashCan.getBoundingClientRect();
+        if(t.clientX>r.left && t.clientX<r.right && t.clientY>r.top && t.clientY<r.bottom){
+          trashCan.classList.add("drag-over");
+        } else { trashCan.classList.remove("drag-over"); }
+      }, {passive:true});
+
+      el.addEventListener("touchend", async e=>{
+        if(!draggedEl) return;
+        const t=e.changedTouches[0];
+        const r=trashCan.getBoundingClientRect();
+        if(t.clientX>r.left && t.clientX<r.right && t.clientY>r.top && t.clientY<r.bottom){
+          await deleteMedia(draggedEl);
+        }
+        trashCan.classList.remove("drag-over");
+        draggedEl=null;
+      });
+    }
+  });
+
+  // Trash drop
+  trashCan.addEventListener("dragover", e=>{
+    e.preventDefault();
+    if(editMode) trashCan.classList.add("drag-over");
+  });
+
+  trashCan.addEventListener("dragleave", e=>{
+    trashCan.classList.remove("drag-over");
+  });
+
+  trashCan.addEventListener("drop", async e=>{
+    e.preventDefault();
+    if(draggedEl && editMode) await deleteMedia(draggedEl);
+    trashCan.classList.remove("drag-over");
+    draggedEl=null;
+  });
+}
+
+// --- DELETE MEDIA ---
+async function deleteMedia(el){
+  if(!editMode) return alert("Enable edit mode first");
+  const src = el.src;
+  const filename = src.replace("media/","");
+  if(!confirm("Delete this item?")) return;
+  try{
+    const res = await fetch(`/api/deleteItem/${username}/${filename}`, {method:"DELETE"});
+    const data = await res.json();
+    if(data.error){ alert("Delete failed: "+data.error); return; }
+    loadGallery();
+  } catch(err){ alert("Delete failed — server did not respond"); console.error(err); }
+}
+
+// --- LOAD GALLERY ---
 async function loadGallery(){
   try{
-    const res=await fetch(`/galleries/${username}/gallery.json?`+Date.now());
+    const res = await fetch(`/galleries/${username}/gallery.json?`+Date.now());
     if(!res.ok){ galleryEl.innerHTML="<p>Unable to load gallery — try refreshing</p>"; return; }
-    const data=await res.json();
+    const data = await res.json();
 
     document.body.style.background=data.bg_color||"";
     document.body.style.color=data.text_color||"";
     titleEl.textContent=data.title||username;
     pinCode=data.pin||"";
 
-    media=data.items.sort((a,b)=>a.batch-b.batch||a.seq-b.seq).map(i=>({type:i.type, src:"media/"+i.stored}));
+    media = data.items.sort((a,b)=>a.batch-b.batch||a.seq-b.seq).map(i=>({type:i.type, src:"media/"+i.stored}));
 
     galleryEl.innerHTML="";
-media.forEach((f, i) => {
-  let el = document.createElement(f.type === "image" ? "img" : "video");
-  el.src = f.src;
-  if (f.type === "video") {
-    el.muted = true;          // muted in gallery
-    el.loop = true;           // loop thumbnail
-    el.autoplay = true;       // autoplay
-    el.playsInline = true;    // mobile
-    el.controls = false;      // hide controls in thumbnail
-    el.setAttribute("playsinline", ""); 
-    el.play().catch(() => {}); // ensure it tries to play
-  }
-  el.onclick = () => show(i); // open lightbox on click
-  galleryEl.appendChild(el);
-});
+    media.forEach((f,i)=>{
+      let el = document.createElement(f.type==="image"?"img":"video");
+      el.src = f.src;
+      if(f.type==="video"){
+        el.muted=true;
+        el.loop=true;
+        el.autoplay=true;
+        el.playsInline=true;
+        el.controls=false;
+        el.setAttribute("playsinline","");
+        el.play().catch(()=>{});
+      }
+      el.onclick = ()=>show(i);
+      galleryEl.appendChild(el);
+    });
+
+    if(editMode) enableDragToTrash();
 
     updateCounter();
 
     if(sortableInstance) sortableInstance.destroy();
     if(editMode) sortableInstance = Sortable.create(galleryEl,{animation:150});
+
   } catch(err){ console.error(err); galleryEl.innerHTML="<p>Unable to load gallery — try refreshing</p>"; }
 }
 
+// --- INITIAL LOAD ---
 loadGallery();
 </script>
 </body>
