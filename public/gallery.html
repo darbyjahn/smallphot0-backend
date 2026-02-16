@@ -433,13 +433,11 @@ document.addEventListener("keydown", e=>{
   if(lightbox.style.display!=="flex") return;
   if(e.key==="ArrowLeft") navigate(-1);
   if(e.key==="ArrowRight") navigate(1);
-  if(e.key==="Escape"){ lightbox.style.display="none"; lightbox.setAttribute("aria-hidden","true"); }
-});
-lightbox.addEventListener("click", function(e){
-  if(e.target === lightbox){
+  if(e.key==="Escape"){
     closeLightbox();
   }
 });
+
 
 /* DELETE ITEM */
 deleteItemBtn.onclick=async()=>{
@@ -451,7 +449,8 @@ deleteItemBtn.onclick=async()=>{
     const res=await fetch(`/api/deleteItem/${username}/${filename}`,{method:"DELETE"});
     const data=await res.json();
     if(data.error){ alert("Delete failed: "+data.error); return; }
-    lightbox.style.display="none"; lightbox.setAttribute("aria-hidden","true"); loadGallery();
+    closeLightbox();
+    loadGallery();
   } catch(err){ alert("Delete failed — server did not respond"); console.error(err); }
 };
 
