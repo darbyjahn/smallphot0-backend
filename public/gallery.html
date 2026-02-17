@@ -148,9 +148,9 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   position:absolute;
   top:10px;
   right:10px;
-  Background: #ffffff;
+  Background:ffffff;
   border:none;
-  Color: #000000;
+  Color:000000;
   z-index:2200;
 }
 
@@ -158,9 +158,9 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   position: absolute;
   top: 50px;       /* below delete */
   right: 10px;
-  background: #ffffff;
+  background: ffffff;
   border: none;
-  color: #000000;
+  color: 000000;
   z-index: 2200;
   cursor: pointer;
   font-size: 14px;
@@ -571,18 +571,6 @@ async function loadGallery(){
     galleryEl.innerHTML="";
 media.forEach((f, i) => {
 
-  // 1️⃣ Create wrapper div to enforce 120px height
-  const wrapper = document.createElement("div");
-  wrapper.style.width = "140px";       // matches your grid min width
-  wrapper.style.height = "120px";      // fixed height for cropping
-  wrapper.style.overflow = "hidden";   // crop rotated images
-  wrapper.style.display = "flex";
-  wrapper.style.alignItems = "center";
-  wrapper.style.justifyContent = "center";
-  wrapper.style.borderRadius = "6px";  // optional, keeps corners rounded
-  wrapper.style.background = "#000";   // optional, same as gallery bg
-
-  // 2️⃣ Create the image/video element
   let el = document.createElement(f.type === "image" ? "img" : "video");
   el.src = f.src;
 
@@ -594,32 +582,26 @@ media.forEach((f, i) => {
     el.controls = false;
     el.setAttribute("playsinline", "");
     el.play().catch(() => {});
-    el.style.width = "100%";
-    el.style.height = "100%";
-    el.style.objectFit = "cover";
-  } else {
-    // IMAGE: rotation handling
-    el.style.transformOrigin = "center center";
-
-    if (f.rotation) {
-      el.style.transform = `rotate(${f.rotation}deg)`;
-    }
-
-    // fill wrapper while cropping
-    el.style.height = "100%";   // fill vertically
-    el.style.width = "auto";    // scale width proportionally
-    el.style.objectFit = "cover";
   }
 
-  // 3️⃣ Click opens lightbox
-  wrapper.onclick = () => show(i);
+  // === ROTATION HANDLING ===
+ if (f.rotation) {
 
-  // 4️⃣ Add image/video into wrapper
-  wrapper.appendChild(el);
+  el.style.transformOrigin = "center center";
 
-  // 5️⃣ Append wrapper to gallery
-  galleryEl.appendChild(wrapper);
+  if (f.rotation % 180 !== 0) {
+    // 90 or 270
+    el.style.transform = `rotate(${f.rotation}deg) scale(1.25)`;
+  } else {
+    // 0 or 180
+    el.style.transform = `rotate(${f.rotation}deg)`;
+  }
+}
+
+  el.onclick = () => show(i);
+  galleryEl.appendChild(el);
 });
+
     updateCounter();
 
     if(sortableInstance) sortableInstance.destroy();
