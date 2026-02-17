@@ -58,9 +58,9 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 .gallery img,
 .gallery video {
   width: 100%;
-  height: 120px;   
+  height: 120px;
   object-fit: cover;
-  object-position: center; 
+  object-position: center center;
   border-radius: 6px;
   cursor: pointer;
   background: #000;
@@ -519,7 +519,6 @@ deleteItemBtn.onclick=async()=>{
 saveOrderBtn.onclick = async () => {
   if (!editMode) return alert("Enable edit mode first");
 
-  // Prepare order + rotation data
   const order = [...galleryEl.children].map(el => {
     const filename = el.src.split("media/")[1];
     const item = media.find(m => m.src.endsWith(filename));
@@ -533,7 +532,7 @@ saveOrderBtn.onclick = async () => {
     const res = await fetch(`/api/reorder/${username}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ order }) // send rotation along with order
+      body: JSON.stringify({ order })
     });
 
     const data = await res.json();
@@ -572,24 +571,42 @@ async function loadGallery(){
 
     galleryEl.innerHTML="";
 media.forEach((f, i) => {
+
   let el = document.createElement(f.type === "image" ? "img" : "video");
   el.src = f.src;
+
   if (f.type === "video") {
-    el.muted = true;          // muted in gallery
-    el.loop = true;           // loop thumbnail
-    el.autoplay = true;       // autoplay
-    el.playsInline = true;    // mobile
-    el.controls = false;      // hide controls in thumbnail
-    el.setAttribute("playsinline", ""); 
-    el.play().catch(() => {}); // ensure it tries to play
-  }
-  
- if (f.rotation) {
-    el.style.transform = `rotate(${f.rotation}deg)`;
-    el.style.transformOrigin = "center center";
+    el.muted = true;
+    el.loop = true;
+    el.autoplay = true;
+    el.playsInline = true;
+    el.controls = false;
+    el.setAttribute("playsinline", "");
+    el.play().catch(() => {});
   }
 
-el.onclick = () => show(i); // open lightbox on click
+  // === ROTATION HANDLING (ELEGANT PART) ===
+  if (f.rotation) {
+
+    el.style.transformOrigin = "center center";
+    el.style.transform = `rotate(${f.rotation}deg)`;
+
+    // If 90 or 270 → treat as vertical layout
+    if (f.rotation % 180 !== 0) {
+
+      // Keep height fixed
+      el.style.height = "120px";
+
+      // Force width to auto so cropping behaves like natural vertical
+      el.style.width = "auto";
+
+      // Center inside grid cell
+      el.style.margin = "0 auto";
+
+    }
+  }
+
+  el.onclick = () => show(i);
   galleryEl.appendChild(el);
 });
 
@@ -632,6 +649,7 @@ rotateItemBtn.onclick = (e) => {
 
   // Save rotation for this image
   f.rotation = currentRotation;
+  loadGallery(); 
 };
 
 loadGallery();
