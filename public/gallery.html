@@ -57,26 +57,15 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 
 .gallery img,
 .gallery video {
-  width: 140px;
+  width: 100%;
   height: 120px;
-  object-fit: cover;        /* crop to fill thumbnail box */
+  object-fit: cover;
   object-position: center center;
   border-radius: 6px;
   cursor: pointer;
   background: #000;
   display: block;
-  transform-origin: center center;
-  transition: transform 0.2s; /* smooth rotation scaling */
 }
-
-/* ROTATED THUMBNAILS: images AND videos */
-.gallery img[data-rotation="90"],
-.gallery img[data-rotation="270"],
-.gallery video[data-rotation="90"],
-.gallery video[data-rotation="270"] {
-  transform: rotate(90deg) scale(calc(140/120)); /* adjust scale to fill box */
-}
-
 
 /* DRAG */
 .sortable-ghost{opacity:.3}
@@ -529,14 +518,15 @@ deleteItemBtn.onclick=async()=>{
 saveOrderBtn.onclick = async () => {
   if (!editMode) return alert("Enable edit mode first");
 
-  const order = [...galleryEl.children].map(el => {
-    const filename = el.src.split("media/")[1];
-    const item = media.find(m => m.src.endsWith(filename));
-    return {
-      src: filename,
-      rotation: item.rotation || 0
-    };
-  });
+const order = [...galleryEl.children].map(wrapper => {
+  const el = wrapper.querySelector("img,video");  // grab inner media
+  const filename = el.src.split("media/")[1];
+  const item = media.find(m => m.src.endsWith(filename));
+  return {
+    src: filename,
+    rotation: item.rotation || 0
+  };
+});
 
   try {
     const res = await fetch(`/api/reorder/${username}`, {
@@ -585,17 +575,6 @@ media.forEach((f, i) => {
   let el = document.createElement(f.type === "image" ? "img" : "video");
   el.src = f.src;
 
-  // === ROTATION HANDLING FOR THUMBNAIL ===
-const rotation = f.rotation || 0;
-el.setAttribute("data-rotation", rotation);
-el.style.transformOrigin = "center center";
-
-if (rotation % 180 !== 0) {
-  el.style.transform = `rotate(${rotation}deg) scale(${140/120})`;
-} else {
-  el.style.transform = `rotate(${rotation}deg)`;
-}
-
   if (f.type === "video") {
     el.muted = true;
     el.loop = true;
@@ -607,21 +586,25 @@ if (rotation % 180 !== 0) {
   }
 
   // === ROTATION HANDLING ===
-if (f.rotation) {
+ if (f.rotation) {
+
   el.style.transformOrigin = "center center";
-  el.setAttribute("data-rotation", f.rotation);
 
   if (f.rotation % 180 !== 0) {
-    el.style.transform = `rotate(${f.rotation}deg) scale(1.33)`;
+    // 90 or 270
+    el.style.transform = `rotate(${f.rotation}deg) scale(1.25)`;
   } else {
+    // 0 or 180
     el.style.transform = `rotate(${f.rotation}deg)`;
   }
-} else {
-  el.setAttribute("data-rotation", 0);
 }
 
-  el.onclick = () => show(i);
-  galleryEl.appendChild(el);
+const wrapper = document.createElement("div");
+wrapper.className = "thumb-wrapper"; // optional, for styling
+
+wrapper.appendChild(el);   // place img/video inside wrapper
+el.onclick = () => show(i); // still works
+galleryEl.appendChild(wrapper);
 });
 
     updateCounter();
@@ -663,18 +646,21 @@ rotateItemBtn.onclick = async (e) => {
   // Save locally
   f.rotation = currentRotation;
 
-const thumb = galleryEl.children[index];
-if (thumb) {
-  thumb.style.transformOrigin = "center center";
+  // Update thumbnail immediately (NO reload)
+const thumbWrapper = galleryEl.children[index];
+if (thumbWrapper) {
+  const thumb = thumbWrapper.querySelector("img"); // inner element
+  if (thumb) {
+    thumb.style.transformOrigin = "center center";
 
-  if (currentRotation % 180 !== 0) {
-    thumb.style.transform = `rotate(${currentRotation}deg) scale(${140/120})`;
-  } else {
-    thumb.style.transform = `rotate(${currentRotation}deg)`;
+    if (currentRotation % 180 !== 0) {
+      thumb.style.transform = `rotate(${currentRotation}deg) scale(1.25)`;
+    } else {
+      thumb.style.transform = `rotate(${currentRotation}deg)`;
+    }
   }
-
-  thumb.setAttribute("data-rotation", currentRotation);
 }
+
 
   // Persist rotation to server immediately
   try {
