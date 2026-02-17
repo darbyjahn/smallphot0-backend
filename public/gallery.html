@@ -137,9 +137,41 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 }
 
 @media (max-width: 700px) {
+
+  /* Lightbox spacing */
   :root {
     --lightbox-pad: 14px;
     --lightbox-max: 94vh;
+  }
+
+  /* Gallery grid tighter on mobile */
+  .gallery {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 6px;
+  }
+
+  /* Slightly taller thumbs for fingers */
+  .thumb-wrapper {
+    height: 140px;
+  }
+
+  /* Make lightbox media truly viewport based */
+  #lightbox-content img,
+  #lightbox-content video {
+    max-width: 95vw;
+    max-height: 85vh;
+  }
+
+  /* Slightly smaller buttons on mobile */
+  #deleteItemBtn,
+  #rotateItemBtn {
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+
+  /* Prevent overflow if rotated */
+  #lightbox {
+    overflow: auto;
   }
 }
 
