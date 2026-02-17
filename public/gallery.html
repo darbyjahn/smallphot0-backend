@@ -467,13 +467,31 @@ deleteItemBtn.onclick=async()=>{
 };
 
 /* SAVE ORDER */
+/* SAVE ORDER */
 saveOrderBtn.onclick = async () => {
-  if(!editMode) return alert("Enable edit mode first");
-  const order=[...galleryEl.children].map(c=>media.find(m=>m.src===c.src).src);
-  try{
-    await fetch(`/api/reorder/${username}`,{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({order})});
-    alert("Order saved"); loadGallery();
-  }catch(e){ alert("Failed to save order"); console.error(e); }
+  if (!editMode) return alert("Enable edit mode first");
+
+  // Get filenames in their NEW visual order
+  const order = [...galleryEl.children].map(el =>
+    el.src.split("media/")[1]
+  );
+
+  try {
+    const res = await fetch(`/api/reorder/${username}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order })
+    });
+
+    const data = await res.json();
+    if (data.error) return alert("Failed to save order");
+
+    alert("Order saved");
+    loadGallery();
+  } catch (e) {
+    alert("Failed to save order");
+    console.error(e);
+  }
 };
 
 /* COUNTER */
