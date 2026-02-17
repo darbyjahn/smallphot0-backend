@@ -75,7 +75,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   position: fixed;
   inset: 0;
 
-  background: rgba(0,0,0,.92);
+  background: rgba(255,105,180,.9);
 
   padding: var(--lightbox-pad);
   box-sizing: border-box;
@@ -254,7 +254,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   <div id="next" class="nav">›</div>
 
   <button id="deleteItemBtn" style="display:none;">DELETE</button>
-  <button id="rotateItemBtn" style="display:none;">ROTATE 90°</button>
+  <button id="rotateItemBtn" style="display:none;">ROTATE</button>
   <div id="lightbox-content"></div>
 </div>
 
@@ -552,7 +552,7 @@ function updateCounter(){
 async function loadGallery(){
   try{
     const res=await fetch(`/galleries/${username}/gallery.json?`+Date.now());
-    if(!res.ok){ galleryEl.innerHTML="<p>Unable to load gallery — try refreshing</p>"; return; }
+    if(!res.ok){ galleryEl.innerHTML="<p>try refreshing</p>"; return; }
     const data=await res.json();
 
     document.body.style.background=data.bg_color||"";
