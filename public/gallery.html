@@ -67,6 +67,17 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   display: block;
 }
 
+.thumbnail-wrapper {
+  width: 140px;       /* same as grid min width */
+  height: 120px;      /* fixed height for cropping */
+  overflow: hidden;   /* crop rotated images */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px; /* matches thumbnails */
+  background: #000;   /* optional to fill empty space */
+}
+
 /* DRAG */
 .sortable-ghost{opacity:.3}
 .sortable-chosen{transform:scale(1.03)}
@@ -598,8 +609,13 @@ media.forEach((f, i) => {
   }
 }
 
-  el.onclick = () => show(i);
-  galleryEl.appendChild(el);
+  // Wrap the thumbnail in a div that crops rotated images
+const wrapper = document.createElement("div");
+wrapper.className = "thumbnail-wrapper";
+wrapper.appendChild(el);
+wrapper.onclick = () => show(i);
+galleryEl.appendChild(wrapper);
+
 });
 
     updateCounter();
