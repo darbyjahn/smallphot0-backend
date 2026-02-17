@@ -168,11 +168,6 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
     font-size: 11px;
     padding: 4px 10px;
   }
-
-  /* Prevent overflow if rotated */
-  #lightbox {
-    overflow: auto;
-  }
 }
 
 /* NAV ARROWS */
@@ -507,8 +502,6 @@ function renderLightbox() {
     // Reset width/height so it scales correctly after rotation
    const isMobile = window.innerWidth < 700;
 
-el.style.maxWidth = isMobile ? "95vw" : "1400px";
-el.style.maxHeight = isMobile ? "85vh" : "92vh";
 
     el.style.width = "auto";
     el.style.height = "auto";
@@ -533,7 +526,6 @@ el.style.maxHeight = isMobile ? "85vh" : "92vh";
     else if (x > rightEdge) navigate(1);
     else if (f.type === "video") el.muted = !el.muted;
   });
-  el.addEventListener("touchstart", e => e.stopPropagation(), { passive: true });
 
   content.appendChild(el);
 
