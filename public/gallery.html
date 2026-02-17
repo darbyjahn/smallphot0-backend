@@ -291,7 +291,7 @@ toggleEditBtn.onclick = async () => {
       });
     } else {
       // existing gallery: prompt for pin
-      let input = prompt("Enter new PIN.:");
+      let input = prompt("Enter PIN");
       if(input !== pinCode && input !== overridePin){
         alert("Incorrect PIN. Do better");
         return;
