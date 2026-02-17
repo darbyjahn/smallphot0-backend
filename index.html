@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Galleries</title>
+<link rel="stylesheet" href="/styles.css">
+
+<style>
+/* ---------- BASIC LAYOUT ---------- */
+body {
+  margin: 0;
+  padding: 2rem;
+  font-family: Arial, Helvetica, sans-serif;
+
+  background: url('bg.png') no-repeat center center fixed;
+  background-size: cover;
+}
+
+
+h1 {
+  text-align: center;
+  margin-bottom: 1.5rem;
+
+  font-size: 3rem;          
+  font-weight: 900;
+
+  color: black;             
+
+  /* Clean white outline */
+  -webkit-text-stroke: 2px white;
+
+  /* Extra glow so it pops on any background */
+  text-shadow: 0 0 8px rgba(255,255,255,0.7);
+}
+
+
+/* ---------- CREATE BUTTON ---------- */
+#createBtn {
+  margin-bottom: 2rem;
+  padding: .6rem 1.4rem;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  background: #4CAF50;
+  color: white;
+  font-weight: bold;
+
+  box-shadow: 0 6px #2e7d32;
+  transition: all .15s ease;
+}
+
+#createBtn:active {
+  transform: translateY(3px);
+  box-shadow: 0 3px #2e7d32;
+}
+
+
+/* ---------- GALLERY GRID ---------- */
+.gallery-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1.5rem;
+}
+
+.gallery-card {
+  border: 1px solid #ccc;
+  padding: 1.2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .15s ease;
+
+  background: rgba(255, 255, 255, 0.2); 
+  backdrop-filter: blur(4px); /* optional: glass effect */
+}
+
+.gallery-card:hover {
+  transform: scale(1.03);
+}
+
+/* ---------- MODAL ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.25);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  padding: 2rem;
+  width: 300px;
+}
+
+.modal input {
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: .4rem;
+}
+
+.modal button {
+  width: 100%;
+  padding: .5rem;
+  cursor: pointer;
+}
+
+.color-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.color-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+}
+
+.color-group label {
+  margin-bottom: .3rem;
+}
+
+.color-group input[type="color"] {
+  height: 40px;
+  width: 100%;
+  border: none;
+  cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Galleries</h1>
+
+<button id="createBtn">CREATE GALLERY</button>
+
+<div class="gallery-list" id="galleryList"></div>
+
+<!-- ---------- CREATE MODAL ---------- -->
+<div class="modal-overlay" id="modal">
+  <div class="modal" onclick="event.stopPropagation()">
+    <input id="name" placeholder="GALLERY NAME">
+
+<div class="color-row">
+  <div class="color-group">
+    <label>Background Color</label>
+    <input id="bg" type="color" value="#ff007f">
+  </div>
+
+  <div class="color-group">
+    <label>Text Color</label>
+    <input id="text" type="color" value="#000000">
+  </div>
+</div>
+
+    <button onclick="createGallery()">CREATE</button>
+  </div>
+</div>
+
+<script>
+const listEl = document.getElementById("galleryList");
+const modal = document.getElementById("modal");
+
+/* ---------- LOAD GALLERIES ---------- */
+async function loadGalleries() {
+  listEl.innerHTML = "";
+  const res = await fetch("/api/galleries");
+  const users = await res.json();
+
+  users.forEach(u => {
+    const div = document.createElement("div");
+    div.className = "gallery-card";
+    div.textContent = u.title;
+    div.onclick = () => {
+      window.location.href = `/galleries/${u.username}/`;
+    };
+    listEl.appendChild(div);
+  });
+}
+
+/* ---------- MODAL CONTROLS ---------- */
+document.getElementById("createBtn").onclick = () => {
+  modal.style.display = "flex";
+};
+
+modal.onclick = () => {
+  modal.style.display = "none";
+};
+
+/* ---------- CREATE ---------- */
+async function createGallery() {
+  const username = document.getElementById("name").value.trim().toLowerCase().replace(/\s+/g,"");
+  const title = document.getElementById("name").value.trim();
+  const bg = document.getElementById("bg").value;
+  const text = document.getElementById("text").value;
+
+  if (!title) return alert("Name required");
+
+  const res = await fetch("/api/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, title, bg, text })
+  });
+
+  const data = await res.json();
+  if (data.error) return alert(data.error);
+
+  modal.style.display = "none";
+  loadGalleries();
+}
+
+loadGalleries();
+</script>
+
+</body>
+</html>
