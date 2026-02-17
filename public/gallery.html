@@ -114,6 +114,11 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   border-radius: 6px;
 }
 
+#lightbox-content img,
+.gallery img {
+  transition: transform 0.3s ease;
+}
+
 @media (max-width: 700px) {
   :root {
     --lightbox-pad: 14px;
@@ -572,6 +577,21 @@ media.forEach((f, i) => {
 
 const rotateItemBtn = document.getElementById("rotateItemBtn");
 
+// Apply rotation and adjust size for lightbox images
+function applyRotation(el, rotation) {
+  if (!el) return;
+  el.style.transform = `rotate(${rotation}deg)`;
+  
+  // If rotated 90° or 270°, swap max-width and max-height
+  if (rotation % 180 !== 0) {
+    el.style.maxWidth = "var(--lightbox-max)";
+    el.style.maxHeight = "min(1400px, 100%)"; 
+  } else {
+    el.style.maxWidth = "min(1400px, 100%)";
+    el.style.maxHeight = "var(--lightbox-max)";
+  }
+}
+
 rotateItemBtn.onclick = () => {
   const f = media[index];
   if (!f || f.type !== "image") return;
@@ -579,12 +599,18 @@ rotateItemBtn.onclick = () => {
   // Rotate 90° clockwise
   currentRotation = (currentRotation + 90) % 360;
 
-  // Apply transform to the image in the lightbox
+  // Apply rotation + proper scaling to lightbox image
   const imgEl = content.querySelector("img");
-  if (imgEl) imgEl.style.transform = `rotate(${currentRotation}deg)`;
+  applyRotation(imgEl, currentRotation);
 
   // Update rotation in the media array (will be saved later)
   f.rotation = currentRotation;
+
+  // Also update gallery thumbnail immediately
+  const thumbEl = galleryEl.children[index];
+  if (thumbEl && f.type === "image") {
+    thumbEl.style.transform = `rotate(${currentRotation}deg)`;
+  }
 };
 
 loadGallery();
