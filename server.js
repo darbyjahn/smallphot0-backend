@@ -148,7 +148,7 @@ app.delete("/api/deleteItem/:user/:file", (req, res) => {
 });
 
 /* =========================================================
-   REORDER
+   REORDER + ROTATION
    ========================================================= */
 
 app.post("/api/reorder/:user", (req, res) => {
@@ -157,11 +157,11 @@ app.post("/api/reorder/:user", (req, res) => {
 
     let g = JSON.parse(fs.readFileSync(gp));
 
+    // req.body.order is now expected to be an array of { src: "filename.jpg", rotation: 90 }
     g.items = req.body.order
-      .map((src, i) => {
-        const name = src.replace("media/", "");
-        const old = g.items.find(x => x.stored === name);
-        return old ? { ...old, seq: i } : null;
+      .map((item, i) => {
+        const old = g.items.find(x => x.stored === item.src);
+        return old ? { ...old, seq: i, rotation: item.rotation || 0 } : null;
       })
       .filter(Boolean);
 
@@ -169,9 +169,11 @@ app.post("/api/reorder/:user", (req, res) => {
 
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: "Could not reorder" });
+    console.error(e);
+    res.status(500).json({ error: "Could not save" });
   }
 });
+
 
 app.post("/api/upload/:user", async (req, res) => {
   try {
