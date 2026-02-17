@@ -612,24 +612,6 @@ media.forEach((f, i) => {
   galleryEl.appendChild(wrapper);
 });
 
-  // === ROTATION HANDLING ===
- if (f.rotation) {
-
-  el.style.transformOrigin = "center center";
-
-  if (f.rotation % 180 !== 0) {
-    // 90 or 270
-    el.style.transform = `rotate(${f.rotation}deg) scale(1.25)`;
-  } else {
-    // 0 or 180
-    el.style.transform = `rotate(${f.rotation}deg)`;
-  }
-}
-
-  el.onclick = () => show(i);
-  galleryEl.appendChild(el);
-});
-
     updateCounter();
 
     if(sortableInstance) sortableInstance.destroy();
