@@ -591,7 +591,11 @@ media.forEach((f, i) => {
 
 const rotateItemBtn = document.getElementById("rotateItemBtn");
 
+// Prevent touch on rotate button from closing lightbox
+rotateItemBtn.addEventListener("touchstart", e => e.stopPropagation(), {passive:true});
+
 rotateItemBtn.onclick = () => {
+  e.stopPropagation();
   const f = media[index];
   if (!f || f.type !== "image") return;
 
