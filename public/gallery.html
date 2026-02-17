@@ -141,9 +141,9 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   position:absolute;
   top:10px;
   right:10px;
-  background:none;
+  Background:ffffff;
   border:none;
-  color:white;
+  Color:000000;
   z-index:2200;
 }
 
@@ -151,14 +151,12 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   position: absolute;
   top: 50px;       /* below delete */
   right: 10px;
-  background: none;
+  background: ffffff;
   border: none;
-  color: white;
+  color: 000000;
   z-index: 2200;
   cursor: pointer;
-  font-weight: bold;
   font-size: 14px;
-  text-shadow: 0 2px #000;
   transition: transform 0.2s, opacity 0.2s;
 }
 #rotateItemBtn:hover { opacity: 0.85; }
@@ -242,7 +240,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   <div id="progressText"></div>
 </div>
 
-<button id="saveOrderBtn">Save Order</button>
+<button id="saveOrderBtn">Save</button>
 
 <div class="gallery" id="gallery"></div>
 
@@ -531,7 +529,7 @@ saveOrderBtn.onclick = async () => {
     });
 
     const data = await res.json();
-    if (data.error) return alert("Failed to save order");
+    if (data.error) return alert("Failed to save");
 
     alert("saved");
     loadGallery();
