@@ -19,18 +19,21 @@ body {
 
 
 h1 {
+  text-align: center;
   margin-bottom: 1.5rem;
-  color: white;
-  text-align: left;
 
-  /* White outline */
-  -webkit-text-stroke: 1px white;
-  text-shadow:
-    2px 2px 0 white,
-    -2px 2px 0 white,
-    2px -2px 0 white,
-    -2px -2px 0 white;
+  font-size: 3rem;          
+  font-weight: 900;
+
+  color: black;             
+
+  /* Clean white outline */
+  -webkit-text-stroke: 2px white;
+
+  /* Extra glow so it pops on any background */
+  text-shadow: 0 0 8px rgba(255,255,255,0.7);
 }
+
 
 /* ---------- CREATE BUTTON ---------- */
 #createBtn {
@@ -134,19 +137,19 @@ h1 {
 
 <h1>Galleries</h1>
 
-<button id="createBtn">Create Gallery</button>
+<button id="createBtn">CREATE GALLERY</button>
 
 <div class="gallery-list" id="galleryList"></div>
 
 <!-- ---------- CREATE MODAL ---------- -->
 <div class="modal-overlay" id="modal">
   <div class="modal" onclick="event.stopPropagation()">
-    <input id="name" placeholder="Gallery name">
+    <input id="name" placeholder="GALLERY NAME">
 
 <div class="color-row">
   <div class="color-group">
     <label>Background Color</label>
-    <input id="bg" type="color" value="#ffffff">
+    <input id="bg" type="color" value="#ff007f">
   </div>
 
   <div class="color-group">
@@ -155,7 +158,7 @@ h1 {
   </div>
 </div>
 
-    <button onclick="createGallery()">Create</button>
+    <button onclick="createGallery()">CREATE</button>
   </div>
 </div>
 
