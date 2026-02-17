@@ -567,8 +567,9 @@ async function loadGallery(){
   .map(i => ({ type: i.type, src: "media/" + i.stored, rotation: i.rotation || 0 }));
 
     galleryEl.innerHTML="";
-media.forEach((f, i) => {
+galleryEl.innerHTML = "";
 
+media.forEach((f, i) => {
   const wrapper = document.createElement("div");
   wrapper.style.height = "120px";
   wrapper.style.overflow = "hidden";
@@ -589,20 +590,26 @@ media.forEach((f, i) => {
     el.play().catch(() => {});
   }
 
-  // IMPORTANT: remove fixed height from media
+  // Size to fit wrapper and crop if necessary
   el.style.width = "100%";
   el.style.height = "100%";
   el.style.objectFit = "cover";
+  el.style.borderRadius = "6px";
 
+  // Apply rotation if exists
   if (f.rotation) {
     el.style.transformOrigin = "center center";
-    el.style.transform = `rotate(${f.rotation}deg)`;
+    if (f.rotation % 180 !== 0) {
+      el.style.transform = `rotate(${f.rotation}deg) scale(1.25)`;
+    } else {
+      el.style.transform = `rotate(${f.rotation}deg)`;
+    }
   }
 
   wrapper.appendChild(el);
   wrapper.onclick = () => show(i);
-  galleryEl.appendChild(wrapper);
 
+  galleryEl.appendChild(wrapper);
 });
 
   // === ROTATION HANDLING ===
