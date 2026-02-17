@@ -572,8 +572,23 @@ async function loadGallery(){
 
     galleryEl.innerHTML="";
 media.forEach((f, i) => {
-  let el = document.createElement(f.type === "image" ? "img" : "video");
-  el.src = f.src;
+  let wrapper = document.createElement("div");
+wrapper.style.width = "100%";
+wrapper.style.height = "120px";
+wrapper.style.overflow = "hidden";
+wrapper.style.borderRadius = "6px";
+wrapper.style.background = "#000";
+wrapper.style.cursor = "pointer";
+wrapper.style.display = "flex";
+wrapper.style.alignItems = "center";
+wrapper.style.justifyContent = "center";
+
+let el = document.createElement(f.type === "image" ? "img" : "video");
+el.src = f.src;
+el.style.objectFit = "cover";
+el.style.width = "100%";
+el.style.height = "100%";
+
   if (f.type === "video") {
     el.muted = true;          // muted in gallery
     el.loop = true;           // loop thumbnail
@@ -584,13 +599,24 @@ media.forEach((f, i) => {
     el.play().catch(() => {}); // ensure it tries to play
   }
   
- if (f.rotation) {
-    el.style.transform = `rotate(${f.rotation}deg)`;
-    el.style.transformOrigin = "center center";
+if (f.rotation) {
+
+  el.style.transformOrigin = "center center";
+
+  if (f.rotation % 180 !== 0) {
+    // 90 or 270 degrees
+    el.style.width = "120px";     // swap dimensions
+    el.style.height = "100%";
   }
 
+  el.style.transform = `rotate(${f.rotation}deg)`;
+}
+
 el.onclick = () => show(i); // open lightbox on click
-  galleryEl.appendChild(el);
+  wrapper.appendChild(el);
+wrapper.onclick = () => show(i);
+galleryEl.appendChild(wrapper);
+
 });
 
     updateCounter();
