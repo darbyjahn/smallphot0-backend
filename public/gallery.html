@@ -591,11 +591,13 @@ media.forEach((f, i) => {
 
 const rotateItemBtn = document.getElementById("rotateItemBtn");
 
-// Prevent touch on rotate button from closing lightbox
+// Prevent clicks/touches on rotate button from closing lightbox
+rotateItemBtn.addEventListener("click", e => e.stopPropagation());
 rotateItemBtn.addEventListener("touchstart", e => e.stopPropagation(), {passive:true});
 
-rotateItemBtn.onclick = () => {
-  e.stopPropagation();
+rotateItemBtn.onclick = (e) => {
+  e.stopPropagation(); // prevent lightbox from closing
+
   const f = media[index];
   if (!f || f.type !== "image") return;
 
@@ -617,7 +619,7 @@ rotateItemBtn.onclick = () => {
     }
   }
 
-  // Update rotation in media array (for saving later)
+  // Save rotation for this image
   f.rotation = currentRotation;
 };
 
