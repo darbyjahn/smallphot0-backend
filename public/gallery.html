@@ -584,26 +584,19 @@ media.forEach((f, i) => {
     el.play().catch(() => {});
   }
 
-  // === ROTATION HANDLING (ELEGANT PART) ===
-  if (f.rotation) {
+  // === ROTATION HANDLING ===
+ if (f.rotation) {
 
-    el.style.transformOrigin = "center center";
+  el.style.transformOrigin = "center center";
+
+  if (f.rotation % 180 !== 0) {
+    // 90 or 270
+    el.style.transform = `rotate(${f.rotation}deg) scale(1.25)`;
+  } else {
+    // 0 or 180
     el.style.transform = `rotate(${f.rotation}deg)`;
-
-    // If 90 or 270 → treat as vertical layout
-    if (f.rotation % 180 !== 0) {
-
-      // Keep height fixed
-      el.style.height = "120px";
-
-      // Force width to auto so cropping behaves like natural vertical
-      el.style.width = "auto";
-
-      // Center inside grid cell
-      el.style.margin = "0 auto";
-
-    }
   }
+}
 
   el.onclick = () => show(i);
   galleryEl.appendChild(el);
@@ -651,19 +644,14 @@ rotateItemBtn.onclick = async (e) => {
   // Update thumbnail immediately (NO reload)
   const thumb = galleryEl.children[index];
   if (thumb) {
-    thumb.style.transform = `rotate(${currentRotation}deg)`;
-    thumb.style.transformOrigin = "center center";
+  thumb.style.transformOrigin = "center center";
 
-    if (currentRotation % 180 !== 0) {
-      thumb.style.height = "120px";
-      thumb.style.width = "auto";
-      thumb.style.margin = "0 auto";
-    } else {
-      thumb.style.width = "100%";
-      thumb.style.height = "120px";
-      thumb.style.margin = "0";
-    }
+  if (currentRotation % 180 !== 0) {
+    thumb.style.transform = `rotate(${currentRotation}deg) scale(1.25)`;
+  } else {
+    thumb.style.transform = `rotate(${currentRotation}deg)`;
   }
+}
 
   // Persist rotation to server immediately
   try {
