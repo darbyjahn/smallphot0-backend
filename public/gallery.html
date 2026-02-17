@@ -83,12 +83,11 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   position: fixed;
   inset: 0;
 
-  background: rgba(255,105,180,.9);
+  background: rgba(180,0,90,.9);
 
   padding: var(--lightbox-pad);
   box-sizing: border-box;
 
-  display: none;
   justify-content: center;
   align-items: center;
 }
@@ -623,8 +622,8 @@ const rotateItemBtn = document.getElementById("rotateItemBtn");
 rotateItemBtn.addEventListener("click", e => e.stopPropagation());
 rotateItemBtn.addEventListener("touchstart", e => e.stopPropagation(), {passive:true});
 
-rotateItemBtn.onclick = (e) => {
-  e.stopPropagation(); // prevent lightbox from closing
+rotateItemBtn.onclick = async (e) => {
+  e.stopPropagation();
 
   const f = media[index];
   if (!f || f.type !== "image") return;
@@ -632,13 +631,12 @@ rotateItemBtn.onclick = (e) => {
   // Rotate 90° clockwise
   currentRotation = (currentRotation + 90) % 360;
 
-  // Apply rotation transform
+  // Apply to lightbox immediately
   const imgEl = content.querySelector("img");
-  if(imgEl){
+  if (imgEl) {
     imgEl.style.transform = `rotate(${currentRotation}deg)`;
 
-    // Adjust maxWidth / maxHeight if rotated
-    if(currentRotation % 180 !== 0){
+    if (currentRotation % 180 !== 0) {
       imgEl.style.maxWidth = "92vh";
       imgEl.style.maxHeight = "1400px";
     } else {
@@ -647,9 +645,39 @@ rotateItemBtn.onclick = (e) => {
     }
   }
 
-  // Save rotation for this image
+  // Save locally
   f.rotation = currentRotation;
-  loadGallery(); 
+
+  // Update thumbnail immediately (NO reload)
+  const thumb = galleryEl.children[index];
+  if (thumb) {
+    thumb.style.transform = `rotate(${currentRotation}deg)`;
+    thumb.style.transformOrigin = "center center";
+
+    if (currentRotation % 180 !== 0) {
+      thumb.style.height = "120px";
+      thumb.style.width = "auto";
+      thumb.style.margin = "0 auto";
+    } else {
+      thumb.style.width = "100%";
+      thumb.style.height = "120px";
+      thumb.style.margin = "0";
+    }
+  }
+
+  // Persist rotation to server immediately
+  try {
+    const filename = f.src.replace("media/", "");
+
+    await fetch(`/api/rotate/${username}/${filename}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rotation: currentRotation })
+    });
+
+  } catch (err) {
+    console.error("Rotation save failed", err);
+  }
 };
 
 loadGallery();
