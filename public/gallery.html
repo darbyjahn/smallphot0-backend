@@ -114,11 +114,6 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   border-radius: 6px;
 }
 
-#lightbox-content img,
-.gallery img {
-  transition: transform 0.3s ease;
-}
-
 @media (max-width: 700px) {
   :root {
     --lightbox-pad: 14px;
@@ -420,12 +415,18 @@ function show(i){
 
 function renderLightbox() {
   content.innerHTML = "";
-  const f = media[index]; if(!f) return;
+  const f = media[index]; 
+  if(!f) return;
 
-  let el = f.type === "image" ? document.createElement("img") : document.createElement("video");
+  let el;
+  if(f.type === "image"){
+    el = document.createElement("img");
+  } else {
+    el = document.createElement("video");
+  }
   el.src = f.src;
 
-  if (f.type === "video") {
+  if(f.type === "video") {
     el.muted = false;
     el.loop = false;
     el.autoplay = true;
@@ -436,7 +437,21 @@ function renderLightbox() {
   } else {
     // IMAGE: load rotation if present
     currentRotation = f.rotation || 0;
+
+    // Reset width/height so it scales correctly after rotation
+    el.style.maxWidth = "1400px";
+    el.style.maxHeight = "92vh";
+    el.style.width = "auto";
+    el.style.height = "auto";
+
+    // Apply rotation transform
     el.style.transform = `rotate(${currentRotation}deg)`;
+
+    // If rotated 90 or 270 degrees, swap width/height constraints to keep proportional fit
+    if(currentRotation % 180 !== 0){
+      el.style.maxWidth = "92vh";
+      el.style.maxHeight = "1400px";
+    }
   }
 
   el.addEventListener("pointerup", e => {
@@ -478,7 +493,6 @@ document.addEventListener("keydown", e=>{
     closeLightbox();
   }
 });
-
 
 /* DELETE ITEM */
 deleteItemBtn.onclick=async()=>{
@@ -577,21 +591,6 @@ media.forEach((f, i) => {
 
 const rotateItemBtn = document.getElementById("rotateItemBtn");
 
-// Apply rotation and adjust size for lightbox images
-function applyRotation(el, rotation) {
-  if (!el) return;
-  el.style.transform = `rotate(${rotation}deg)`;
-  
-  // If rotated 90° or 270°, swap max-width and max-height
-  if (rotation % 180 !== 0) {
-    el.style.maxWidth = "var(--lightbox-max)";
-    el.style.maxHeight = "min(1400px, 100%)"; 
-  } else {
-    el.style.maxWidth = "min(1400px, 100%)";
-    el.style.maxHeight = "var(--lightbox-max)";
-  }
-}
-
 rotateItemBtn.onclick = () => {
   const f = media[index];
   if (!f || f.type !== "image") return;
@@ -599,18 +598,23 @@ rotateItemBtn.onclick = () => {
   // Rotate 90° clockwise
   currentRotation = (currentRotation + 90) % 360;
 
-  // Apply rotation + proper scaling to lightbox image
+  // Apply rotation transform
   const imgEl = content.querySelector("img");
-  applyRotation(imgEl, currentRotation);
+  if(imgEl){
+    imgEl.style.transform = `rotate(${currentRotation}deg)`;
 
-  // Update rotation in the media array (will be saved later)
-  f.rotation = currentRotation;
-
-  // Also update gallery thumbnail immediately
-  const thumbEl = galleryEl.children[index];
-  if (thumbEl && f.type === "image") {
-    thumbEl.style.transform = `rotate(${currentRotation}deg)`;
+    // Adjust maxWidth / maxHeight if rotated
+    if(currentRotation % 180 !== 0){
+      imgEl.style.maxWidth = "92vh";
+      imgEl.style.maxHeight = "1400px";
+    } else {
+      imgEl.style.maxWidth = "1400px";
+      imgEl.style.maxHeight = "92vh";
+    }
   }
+
+  // Update rotation in media array (for saving later)
+  f.rotation = currentRotation;
 };
 
 loadGallery();
