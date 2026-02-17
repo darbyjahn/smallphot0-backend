@@ -158,31 +158,45 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 #next{right:10px}
 @media (pointer: coarse) { .nav { display: none; } }
 
-/* DELETE ITEM BUTTON */
-#deleteItemBtn{
-  position:absolute;
-  top:10px;
-  right:10px;
-  Background:ffffff;
-  border:none;
-  Color:000000;
-  z-index:2200;
+/* LIGHTBOX BUTTONS: match header buttons */
+#deleteItemBtn,
+#rotateItemBtn {
+  font-size: 13px;
+  cursor: pointer;
+  transition: 0.2s all;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  box-shadow: 0 4px #999;
+  background: #eee;
+  color: #000;
+  position: absolute;
+  right: 10px;
+  z-index: 2200;
+}
+
+#deleteItemBtn {
+  top: 10px;
+  background: #ff9800;
+  color: white;
 }
 
 #rotateItemBtn {
-  position: absolute;
-  top: 50px;       /* below delete */
-  right: 10px;
-  background: ffffff;
-  border: none;
-  color: 000000;
-  z-index: 2200;
-  cursor: pointer;
-  font-size: 14px;
-  transition: transform 0.2s, opacity 0.2s;
+  top: 50px; /* below delete button */
+  background: #2196f3;
+  color: white;
 }
-#rotateItemBtn:hover { opacity: 0.85; }
-#rotateItemBtn:active { transform: translateY(2px) rotateY(10deg); }
+
+#deleteItemBtn:hover,
+#rotateItemBtn:hover {
+  opacity: 0.85;
+}
+
+#deleteItemBtn:active,
+#rotateItemBtn:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px #666;
+}
 
 /* UPLOAD BAR */
 #progressWrap{
