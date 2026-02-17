@@ -505,8 +505,11 @@ function renderLightbox() {
     currentRotation = f.rotation || 0;
 
     // Reset width/height so it scales correctly after rotation
-    el.style.maxWidth = "1400px";
-    el.style.maxHeight = "92vh";
+   const isMobile = window.innerWidth < 700;
+
+el.style.maxWidth = isMobile ? "95vw" : "1400px";
+el.style.maxHeight = isMobile ? "85vh" : "92vh";
+
     el.style.width = "auto";
     el.style.height = "auto";
 
@@ -514,10 +517,10 @@ function renderLightbox() {
     el.style.transform = `rotate(${currentRotation}deg)`;
 
     // If rotated 90 or 270 degrees, swap width/height constraints to keep proportional fit
-    if(currentRotation % 180 !== 0){
-      el.style.maxWidth = "92vh";
-      el.style.maxHeight = "1400px";
-    }
+ if (currentRotation % 180 !== 0) {
+  el.style.maxWidth = isMobile ? "85vh" : "92vh";
+  el.style.maxHeight = isMobile ? "95vw" : "1400px";
+}
   }
 
   el.addEventListener("pointerup", e => {
@@ -695,13 +698,15 @@ rotateItemBtn.onclick = async (e) => {
   if (imgEl) {
     imgEl.style.transform = `rotate(${currentRotation}deg)`;
 
-    if (currentRotation % 180 !== 0) {
-      imgEl.style.maxWidth = "92vh";
-      imgEl.style.maxHeight = "1400px";
-    } else {
-      imgEl.style.maxWidth = "1400px";
-      imgEl.style.maxHeight = "92vh";
-    }
+ const isMobile = window.innerWidth < 700;
+
+if (currentRotation % 180 !== 0) {
+  imgEl.style.maxWidth = isMobile ? "85vh" : "92vh";
+  imgEl.style.maxHeight = isMobile ? "95vw" : "1400px";
+} else {
+  imgEl.style.maxWidth = isMobile ? "95vw" : "1400px";
+  imgEl.style.maxHeight = isMobile ? "85vh" : "92vh";
+}
   }
 
   // Save locally
