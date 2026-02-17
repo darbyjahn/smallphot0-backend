@@ -541,7 +541,9 @@ async function loadGallery(){
     titleEl.textContent=data.title||username;
     pinCode=data.pin||"";
 
-    media=data.items.sort((a,b)=>a.batch-b.batch||a.seq-b.seq).map(i=>({type:i.type, src:"media/"+i.stored}));
+   media = data.items
+  .sort((a,b) => a.batch - b.batch || a.seq - b.seq)
+  .map(i => ({ type: i.type, src: "media/" + i.stored, rotation: i.rotation || 0 }));
 
     galleryEl.innerHTML="";
 media.forEach((f, i) => {
@@ -555,6 +557,7 @@ media.forEach((f, i) => {
     el.controls = false;      // hide controls in thumbnail
     el.setAttribute("playsinline", ""); 
     el.play().catch(() => {}); // ensure it tries to play
+    el.style.transform = `rotate(${f.rotation || 0}deg)`;
   }
   el.onclick = () => show(i); // open lightbox on click
   galleryEl.appendChild(el);
