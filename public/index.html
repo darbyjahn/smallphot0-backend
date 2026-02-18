@@ -12,18 +12,11 @@ body {
   margin: 0;
   padding: 2rem;
   font-family: Arial, Helvetica, sans-serif;
-  background: url('bg.png') no-repeat center center;
+
+  background: url('bg.png') no-repeat center center fixed;
   background-size: cover;
-  background-attachment: scroll;
-  Height: 200vh; /* remove */
 }
 
-.foreground {
-  position: fixed;
-  inset: 0;
-  padding: 2rem;
-  overflow-y: auto; 
-}
 
 h1 {
   text-align: center;
@@ -140,10 +133,10 @@ h1 {
 
 <body>
 
-<div class="foreground">
-
 <h1>★GALLERIES★</h1>
+
 <button id="createBtn">CREATE GALLERY</button>
+
 <div class="gallery-list" id="galleryList"></div>
 
 <!-- ---------- CREATE MODAL ---------- -->
