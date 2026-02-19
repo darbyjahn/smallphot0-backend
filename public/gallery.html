@@ -107,16 +107,16 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   align-items: center;
 }
 
-#lightbox-content {
-  display: grid;
-  place-items: center;
-
-  max-width: 100%;
-  max-height: 100%;
-
+#lightbox-content img,
+#lightbox-content video {
+  object-fit: contain;
+  max-width: 95vw;
+  max-height: 90vh;
   width: auto;
   height: auto;
+  border-radius: 6px;
 }
+
 
 /* THE ONLY RULE THAT SIZES MEDIA */
 #lightbox-content img,
@@ -458,8 +458,8 @@ function closeLightbox(){
   lightbox.setAttribute("aria-hidden","true");
 }
 
-lightbox.addEventListener("click", function(e){
-  if(!content.contains(e.target)){
+lightbox.addEventListener("pointerdown", function(e){
+  if (e.target === lightbox) {
     closeLightbox();
   }
 });
@@ -496,42 +496,31 @@ function renderLightbox() {
     el.setAttribute("playsinline", "");
     el.play().catch(() => {});
   } else {
-    // IMAGE: load rotation if present
-    currentRotation = f.rotation || 0;
 
-    // Reset width/height so it scales correctly after rotation
-   const isMobile = window.innerWidth < 700;
+// IMAGE
+currentRotation = f.rotation || 0;
 
-
-    el.style.width = "auto";
-    el.style.height = "auto";
-
-    // Apply rotation transform
-    el.style.transform = `rotate(${currentRotation}deg)`;
-
-    // If rotated 90 or 270 degrees, swap width/height constraints to keep proportional fit
- if (currentRotation % 180 !== 0) {
-  el.style.maxWidth = isMobile ? "85vh" : "92vh";
-  el.style.maxHeight = isMobile ? "95vw" : "1400px";
-}
-  }
-
-  el.addEventListener("pointerup", e => {
-    e.stopPropagation();
-    const rect = el.getBoundingClientRect(),
-          x = e.clientX - rect.left,
-          w = rect.width || window.innerWidth;
-    const leftEdge = w * 0.25, rightEdge = w * 0.75;
-    if (x < leftEdge) navigate(-1);
-    else if (x > rightEdge) navigate(1);
-    else if (f.type === "video") el.muted = !el.muted;
-  });
+el.style.width = "auto";
+el.style.height = "auto";
+el.style.transformOrigin = "center center";
+el.style.transform = `rotate(${currentRotation}deg)`;
 
   content.appendChild(el);
 
   // Show Rotate button only for images in edit mode
   rotateItemBtn.style.display = (editMode && f.type === "image") ? "block" : "none";
 }
+
+lightbox.addEventListener("pointerup", function(e){
+  if (e.target !== lightbox && !content.contains(e.target)) return;
+
+  const w = window.innerWidth;
+  const x = e.clientX;
+
+  if (x < w * 0.3) navigate(-1);
+  else if (x > w * 0.7) navigate(1);
+});
+
 
 /* Swipe */
 let startX=null;
@@ -642,17 +631,9 @@ media.forEach((f, i) => {
   }
 
   // === ROTATION HANDLING ===
- if (f.rotation) {
-
+if (f.rotation) {
   el.style.transformOrigin = "center center";
-
-  if (f.rotation % 180 !== 0) {
-    // 90 or 270
-    el.style.transform = `rotate(${f.rotation}deg) scale(1.25)`;
-  } else {
-    // 0 or 180
-    el.style.transform = `rotate(${f.rotation}deg)`;
-  }
+  el.style.transform = `rotate(${f.rotation}deg)`;
 }
 
 const wrapper = document.createElement("div");
@@ -692,12 +673,9 @@ rotateItemBtn.onclick = async (e) => {
 
  const isMobile = window.innerWidth < 700;
 
-if (currentRotation % 180 !== 0) {
-  imgEl.style.maxWidth = isMobile ? "85vh" : "92vh";
-  imgEl.style.maxHeight = isMobile ? "95vw" : "1400px";
-} else {
-  imgEl.style.maxWidth = isMobile ? "95vw" : "1400px";
-  imgEl.style.maxHeight = isMobile ? "85vh" : "92vh";
+if (imgEl) {
+  imgEl.style.transformOrigin = "center center";
+  imgEl.style.transform = `rotate(${currentRotation}deg)`;
 }
   }
 
@@ -710,15 +688,7 @@ if (thumbWrapper) {
   const thumb = thumbWrapper.querySelector("img"); // inner element
   if (thumb) {
     thumb.style.transformOrigin = "center center";
-
-    if (currentRotation % 180 !== 0) {
-      thumb.style.transform = `rotate(${currentRotation}deg) scale(1.25)`;
-    } else {
-      thumb.style.transform = `rotate(${currentRotation}deg)`;
-    }
-  }
-}
-
+    thumb.style.transform = `rotate(${currentRotation}deg)`;
 
   // Persist rotation to server immediately
   try {
