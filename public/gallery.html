@@ -485,6 +485,7 @@ function renderLightbox() {
   } else {
     el = document.createElement("video");
   }
+
   el.src = f.src;
 
   if(f.type === "video") {
@@ -495,20 +496,17 @@ function renderLightbox() {
     el.controls = true;
     el.setAttribute("playsinline", "");
     el.play().catch(() => {});
+    rotateItemBtn.style.display = "none";
   } else {
-
-// IMAGE
-currentRotation = f.rotation || 0;
-
-el.style.width = "auto";
-el.style.height = "auto";
-el.style.transformOrigin = "center center";
-el.style.transform = `rotate(${currentRotation}deg)`;
+    currentRotation = f.rotation || 0;
+    el.style.width = "auto";
+    el.style.height = "auto";
+    el.style.transformOrigin = "center center";
+    el.style.transform = `rotate(${currentRotation}deg)`;
+    rotateItemBtn.style.display = editMode ? "block" : "none";
+  }
 
   content.appendChild(el);
-
-  // Show Rotate button only for images in edit mode
-  rotateItemBtn.style.display = (editMode && f.type === "image") ? "block" : "none";
 }
 
 lightbox.addEventListener("pointerup", function(e){
@@ -666,18 +664,11 @@ rotateItemBtn.onclick = async (e) => {
   // Rotate 90° clockwise
   currentRotation = (currentRotation + 90) % 360;
 
-  // Apply to lightbox immediately
-  const imgEl = content.querySelector("img");
-  if (imgEl) {
-    imgEl.style.transform = `rotate(${currentRotation}deg)`;
-
- const isMobile = window.innerWidth < 700;
-
+const imgEl = content.querySelector("img");
 if (imgEl) {
   imgEl.style.transformOrigin = "center center";
   imgEl.style.transform = `rotate(${currentRotation}deg)`;
 }
-  }
 
   // Save locally
   f.rotation = currentRotation;
@@ -689,6 +680,8 @@ if (thumbWrapper) {
   if (thumb) {
     thumb.style.transformOrigin = "center center";
     thumb.style.transform = `rotate(${currentRotation}deg)`;
+  }
+}
 
   // Persist rotation to server immediately
   try {
