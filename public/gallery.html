@@ -158,6 +158,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   /* Make lightbox media truly viewport based */
   #lightbox-content img,
   #lightbox-content video {
+    transform-origin: center center;
     max-width: 95vw;
     max-height: 85vh;
   }
@@ -509,11 +510,8 @@ function renderLightbox() {
     // Apply rotation transform
     el.style.transform = `rotate(${currentRotation}deg)`;
 
-    // If rotated 90 or 270 degrees, swap width/height constraints to keep proportional fit
- if (currentRotation % 180 !== 0) {
-  el.style.maxWidth = isMobile ? "85vh" : "92vh";
-  el.style.maxHeight = isMobile ? "95vw" : "1400px";
-}
+currentRotation = f.rotation || 0;
+el.style.transform = `rotate(${currentRotation}deg)`;
   }
 
   el.addEventListener("pointerup", e => {
