@@ -107,16 +107,16 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
   align-items: center;
 }
 
-#lightbox-content img,
-#lightbox-content video {
-  object-fit: contain;
-  max-width: 95vw;
-  max-height: 90vh;
+#lightbox-content {
+  display: grid;
+  place-items: center;
+
+  max-width: 100%;
+  max-height: 100%;
+
   width: auto;
   height: auto;
-  border-radius: 6px;
 }
-
 
 /* THE ONLY RULE THAT SIZES MEDIA */
 #lightbox-content img,
@@ -496,15 +496,25 @@ function renderLightbox() {
     el.setAttribute("playsinline", "");
     el.play().catch(() => {});
   } else {
+    // IMAGE: load rotation if present
+    currentRotation = f.rotation || 0;
 
-// IMAGE
-currentRotation = f.rotation || 0;
+    // Reset width/height so it scales correctly after rotation
+   const isMobile = window.innerWidth < 700;
 
-el.style.width = "auto";
-el.style.height = "auto";
-el.style.transformOrigin = "center center";
-el.style.transform = `rotate(${currentRotation}deg)`;
 
+    el.style.width = "auto";
+    el.style.height = "auto";
+
+    // Apply rotation transform
+    el.style.transform = `rotate(${currentRotation}deg)`;
+
+    // If rotated 90 or 270 degrees, swap width/height constraints to keep proportional fit
+ if (currentRotation % 180 !== 0) {
+  el.style.maxWidth = isMobile ? "85vh" : "92vh";
+  el.style.maxHeight = isMobile ? "95vw" : "1400px";
+}
+  }
 
   el.addEventListener("pointerup", e => {
     e.stopPropagation();
@@ -682,9 +692,12 @@ rotateItemBtn.onclick = async (e) => {
 
  const isMobile = window.innerWidth < 700;
 
-if (imgEl) {
-  imgEl.style.transformOrigin = "center center";
-  imgEl.style.transform = `rotate(${currentRotation}deg)`;
+if (currentRotation % 180 !== 0) {
+  imgEl.style.maxWidth = isMobile ? "85vh" : "92vh";
+  imgEl.style.maxHeight = isMobile ? "95vw" : "1400px";
+} else {
+  imgEl.style.maxWidth = isMobile ? "95vw" : "1400px";
+  imgEl.style.maxHeight = isMobile ? "85vh" : "92vh";
 }
   }
 
