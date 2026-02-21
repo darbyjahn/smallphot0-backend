@@ -128,8 +128,8 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif}
 #lightbox-content img,
 #lightbox-content video {
   object-fit: contain;
-  max-width: min(1400px, 100%);
-  max-height: var(--lightbox-max);
+  max-width: min(1200px, 90vw);
+  max-height: 85vh;
   width: auto;
   height: auto;
   border-radius: 6px;
@@ -640,18 +640,17 @@ media.forEach((f, i) => {
     el.play().catch(() => {});
   }
 
-  // === ROTATION HANDLING ===
- if (f.rotation) {
+// === ROTATION HANDLING ===
+el.style.transformOrigin = "center center";
 
-  el.style.transformOrigin = "center center";
+const rotation = f.rotation || 0;
 
-  if (f.rotation % 180 !== 0) {
-    // 90 or 270
-    el.style.transform = `rotate(${f.rotation}deg) scale(1.18)`;
-  } else {
-    // 0 or 180
-    el.style.transform = `rotate(${f.rotation}deg)`;
-  }
+if (rotation % 180 !== 0) {
+  const isMobile = window.innerWidth <= 700;
+  const scale = isMobile ? 1.18 : 1.32;
+  el.style.transform = `rotate(${rotation}deg) scale(${scale})`;
+} else {
+  el.style.transform = `rotate(${rotation}deg)`;
 }
 
 const wrapper = document.createElement("div");
@@ -695,20 +694,22 @@ rotateItemBtn.onclick = async (e) => {
   f.rotation = currentRotation;
 
   // Update thumbnail immediately (NO reload)
+
 const thumbWrapper = galleryEl.children[index];
 if (thumbWrapper) {
-  const thumb = thumbWrapper.querySelector("img"); // inner element
+  const thumb = thumbWrapper.querySelector("img");
   if (thumb) {
     thumb.style.transformOrigin = "center center";
 
     if (currentRotation % 180 !== 0) {
-      thumb.style.transform = `rotate(${currentRotation}deg) scale(1.18)`;
+      const isMobile = window.innerWidth <= 700;
+      const scale = isMobile ? 1.18 : 1.32;
+      thumb.style.transform = `rotate(${currentRotation}deg) scale(${scale})`;
     } else {
       thumb.style.transform = `rotate(${currentRotation}deg)`;
     }
   }
 }
-
 
   // Persist rotation to server immediately
   try {
