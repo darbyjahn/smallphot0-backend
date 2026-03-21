@@ -476,6 +476,17 @@ lightbox.addEventListener("click", function(e){
 });
 
 /* LIGHTBOX */
+
+function getRotationTransform(rotation, containerW, containerH) {
+  if (rotation % 180 === 0) {
+    return `rotate(${rotation}deg)`;
+  }
+  // When vertical: the image's width becomes its visual height.
+  // Scale it down so it fits within the container's height.
+  const scale = Math.min(containerH / containerW, containerW / containerH, 1);
+  return `rotate(${rotation}deg) scale(${scale})`;
+}
+
 function show(i){
   index=i;
   renderLightbox();
@@ -518,16 +529,9 @@ function renderLightbox() {
 
 currentRotation = f.rotation || 0;
 
-if (currentRotation % 180 !== 0) {
-  const vw = window.innerWidth * 0.9;
-  const vh = window.innerHeight * 0.85;
-
-  const scale = Math.min(vh / vw, 1);
-
-  el.style.transform = `rotate(${currentRotation}deg) scale(${scale})`;
-} else {
-  el.style.transform = `rotate(${currentRotation}deg)`;
-}
+const vw = window.innerWidth * 0.9;
+const vh = window.innerHeight * 0.85;
+el.style.transform = getRotationTransform(currentRotation, vw, vh);
   }
 
   el.addEventListener("pointerup", e => {
@@ -660,18 +664,13 @@ el.style.transformOrigin = "center center";
 
 const rotation = f.rotation || 0;
 
-if (rotation % 180 !== 0) {
-  const isMobile = window.innerWidth <= 700;
-  const scale = isMobile ? 1.18 : 1.32;
-  el.style.transform = `rotate(${rotation}deg) scale(${scale})`;
-} else {
-  el.style.transform = `rotate(${rotation}deg)`;
-}
-
 const wrapper = document.createElement("div");
-wrapper.className = "thumb-wrapper"; // optional, for styling
+wrapper.className = "thumb-wrapper";
 
-wrapper.appendChild(el);   // place img/video inside wrapper
+el.style.transform = getRotationTransform(rotation, wrapper.offsetWidth || 140, 120);
+
+wrapper.appendChild(el);
+
 el.onclick = () => show(i); // still works
 galleryEl.appendChild(wrapper);
 });
@@ -700,11 +699,12 @@ rotateItemBtn.onclick = async (e) => {
 
   // Apply to lightbox immediately
   const imgEl = content.querySelector("img");
-  if (imgEl) {
-    imgEl.style.transform = `rotate(${currentRotation}deg)`;
-
-  }
-
+ 
+if (imgEl) {
+  const vw = window.innerWidth * 0.9;
+  const vh = window.innerHeight * 0.85;
+  imgEl.style.transform = getRotationTransform(currentRotation, vw, vh);
+}
   // Save locally
   f.rotation = currentRotation;
 
@@ -713,17 +713,12 @@ rotateItemBtn.onclick = async (e) => {
 const thumbWrapper = galleryEl.children[index];
 if (thumbWrapper) {
   const thumb = thumbWrapper.querySelector("img");
-  if (thumb) {
-    thumb.style.transformOrigin = "center center";
-
-    if (currentRotation % 180 !== 0) {
-      const isMobile = window.innerWidth <= 700;
-      const scale = isMobile ? 1.18 : 1.32;
-      thumb.style.transform = `rotate(${currentRotation}deg) scale(${scale})`;
-    } else {
-      thumb.style.transform = `rotate(${currentRotation}deg)`;
-    }
-  }
+ 
+if (thumb) {
+  thumb.style.transformOrigin = "center center";
+  const w = thumbWrapper.offsetWidth || 140;
+  thumb.style.transform = getRotationTransform(currentRotation, w, 120);
+}
 }
 
   // Persist rotation to server immediately
