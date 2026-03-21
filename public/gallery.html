@@ -481,10 +481,9 @@ function getRotationTransform(rotation, containerW, containerH) {
   if (rotation % 180 === 0) {
     return `rotate(${rotation}deg)`;
   }
-  // When vertical: the image's width becomes its visual height.
-  // Scale it down so it fits within the container's height.
   const scale = Math.min(containerH / containerW, containerW / containerH, 1);
-  return `rotate(${rotation}deg) scale(${scale})`;
+  const boosted = Math.min(scale * 1.6, 1);
+  return `rotate(${rotation}deg) scale(${boosted})`;
 }
 
 function show(i){
