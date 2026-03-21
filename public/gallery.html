@@ -482,7 +482,7 @@ function getRotationTransform(rotation, containerW, containerH) {
     return `rotate(${rotation}deg)`;
   }
   const scale = Math.min(containerH / containerW, containerW / containerH, 1);
-  const boosted = Math.min(scale * 1.6, 1);
+  const boosted = Math.min(scale * 1.8, 1);
   return `rotate(${rotation}deg) scale(${boosted})`;
 }
 
