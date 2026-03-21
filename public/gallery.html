@@ -465,6 +465,8 @@ function upload(){
 }
 
 function closeLightbox(){
+  const vid = content.querySelector("video");
+  if(vid){ vid.pause(); vid.muted = true; }
   lightbox.style.display = "none";
   lightbox.setAttribute("aria-hidden","true");
 }
@@ -482,7 +484,7 @@ function getRotationTransform(rotation, containerW, containerH) {
     return `rotate(${rotation}deg)`;
   }
   const scale = Math.min(containerH / containerW, containerW / containerH, 1);
-  const boosted = Math.min(scale * 1.8, 1);
+  const boosted = Math.min(scale * 1.6, 1);
   return `rotate(${rotation}deg) scale(${boosted})`;
 }
 
@@ -508,16 +510,17 @@ function renderLightbox() {
   }
   el.src = f.src;
 
-  if(f.type === "video") {
-    el.muted = false;
+if(f.type === "video") {
+    el.muted = true;
     el.loop = false;
     el.autoplay = true;
     el.playsInline = true;
     el.controls = true;
     el.setAttribute("playsinline", "");
-    el.play().catch(() => {});
+    el.play().then(() => {
+      el.muted = false;
+    }).catch(() => {});
   } else {
-    // IMAGE: load rotation if present
 
     // Reset width/height so it scales correctly after rotation
    const isMobile = window.innerWidth < 700;
@@ -560,7 +563,13 @@ lightbox.addEventListener("touchend",e=>{
   startX=null;
 },{passive:true});
 
-function navigate(d){ index=(index+d+media.length)%media.length; renderLightbox(); }
+function navigate(d){
+  const vid = content.querySelector("video");
+  if(vid){ vid.pause(); vid.muted = true; }
+  index=(index+d+media.length)%media.length;
+  renderLightbox();
+}
+
 prev.onclick=e=>{e.stopPropagation(); navigate(-1);};
 next.onclick=e=>{e.stopPropagation(); navigate(1);};
 document.addEventListener("keydown", e=>{
