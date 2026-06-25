@@ -12,11 +12,17 @@ body {
   margin: 0;
   padding: 2rem;
   font-family: Arial, Helvetica, sans-serif;
-
-  background: url('bg.png') no-repeat center center fixed;
-  background-size: cover;
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+
+  background: url('bg.png') center center / cover no-repeat;
+
+  z-index: -1;
+}
 
 h1 {
   text-align: center;
@@ -32,6 +38,47 @@ h1 {
 
 }
 
+.help-popup{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.35);
+
+  display:none;
+  justify-content:center;
+  align-items:center;
+
+  z-index:9999;
+}
+
+.help-box{
+  width:min(420px,90vw);
+
+  background:#fff9d8;
+  border:3px solid #000;
+
+  padding:20px;
+
+  box-shadow:8px 8px 0 rgba(0,0,0,.25);
+
+  position:relative;
+
+  font-family:Arial, sans-serif;
+}
+
+.help-box h2{
+  margin-top:0;
+}
+
+#closeHelp{
+  position:absolute;
+  right:10px;
+  top:10px;
+
+  border:none;
+  background:none;
+  font-size:22px;
+  cursor:pointer;
+}
 
 /* ---------- CREATE BUTTON ---------- */
 #createBtn {
@@ -41,7 +88,7 @@ h1 {
   border: none;
   border-radius: 6px;
   background: #dd9540;
-  color: 000000;
+  color: #000000;
   font-weight: none;
 
   box-shadow: 0 6px #c3532f;
@@ -160,6 +207,16 @@ h1 {
   </div>
 </div>
 
+<div id="helpPopup" class="help-popup">
+  <div class="help-box">
+    <button id="closeHelp">×</button>
+
+    <h2 id="helpTitle"></h2>
+
+    <div id="helpText"></div>
+  </div>
+</div>
+
 <script>
 const listEl = document.getElementById("galleryList");
 const modal = document.getElementById("modal");
@@ -213,6 +270,25 @@ async function createGallery() {
 }
 
 loadGalleries();
+
+if(!localStorage.getItem("homeHelpSeen")){
+
+  document.getElementById("helpTitle").textContent =
+    "This is the Small Photo Gallery";
+
+  document.getElementById("helpText").innerHTML = `
+    Create your own gallery and upload photos or videos from.<br><br>
+    your tiny camera. Each gallery has a pin share it or don't.
+  `;
+
+  document.getElementById("helpPopup").style.display = "flex";
+}
+
+document.getElementById("closeHelp").onclick = () => {
+  localStorage.setItem("homeHelpSeen","1");
+  document.getElementById("helpPopup").style.display = "none";
+};
+
 </script>
 
 </body>
