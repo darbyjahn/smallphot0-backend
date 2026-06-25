@@ -69,6 +69,35 @@ h1 {
   margin-top:0;
 }
 
+@media (max-width: 700px) {
+
+  .help-box {
+    width: 82vw;
+    max-width: 300px;
+
+    padding: 16px;
+
+    border-width: 2px;
+  }
+
+  .help-box h2 {
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
+
+  .help-box {
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  #closeHelp {
+    font-size: 18px;
+    top: 8px;
+    right: 8px;
+  }
+
+}
+
 #closeHelp{
   position:absolute;
   right:10px;
@@ -277,8 +306,8 @@ if(!localStorage.getItem("homeHelpSeen")){
     "This is the Small Photo Gallery";
 
   document.getElementById("helpText").innerHTML = `
-    Create your own gallery and upload photos or videos from.<br><br>
-    your tiny camera. Each gallery has a pin share it or don't.
+    Create your own gallery and upload photos or videos from your tiny camera.<br><br> 
+    Each gallery has a pin share it or don't.
   `;
 
   document.getElementById("helpPopup").style.display = "flex";
