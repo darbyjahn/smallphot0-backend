@@ -491,12 +491,21 @@ lightbox.addEventListener("click", function(e){
 
 /* LIGHTBOX */
 
-function if(rotation % 180 === 0){
-  thumb.style.transform =
-    `rotate(${rotation}deg) scale(1)`;
-}else{
-  thumb.style.transform =
-    `rotate(${rotation}deg) scale(1.45)`;
+function getRotationTransform(rotation, containerW, containerH) {
+
+ if (rotation % 180 === 0) {
+    return `rotate(${rotation}deg)`;
+  }
+
+  const scale = Math.min(
+    containerH / containerW,
+    containerW / containerH,
+    1
+  );
+
+  const boosted = Math.min(scale * 1.6, 1.45);
+
+  return `rotate(${rotation}deg) scale(${boosted})`;
 }
 
 function show(i){
@@ -746,9 +755,15 @@ if (thumbWrapper) {
  
 if (thumb) {
   thumb.style.transformOrigin = "center center";
-  const w = thumbWrapper.offsetWidth || 140;
-  thumb.style.transform = getRotationTransform(currentRotation, w, 120);
-}
+
+  if (currentRotation % 180 === 0) {
+    thumb.style.transform =
+      `rotate(${currentRotation}deg) scale(1)`;
+  } else {
+    thumb.style.transform =
+      `rotate(${currentRotation}deg) scale(1.45)`;
+  }
+ }
 }
 
   // Persist rotation to server immediately
