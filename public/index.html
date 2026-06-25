@@ -300,7 +300,9 @@ async function createGallery() {
 
 loadGalleries();
 
-if(!localStorage.getItem("homeHelpSeen")){
+const helpKey = `galleryHelpSeen_${username}`;
+
+if(!localStorage.getItem(helpKey)){
 
   document.getElementById("helpTitle").textContent =
     "This is the Small Photo Gallery";
@@ -314,7 +316,7 @@ if(!localStorage.getItem("homeHelpSeen")){
 }
 
 document.getElementById("closeHelp").onclick = () => {
-  localStorage.setItem("homeHelpSeen","1");
+  localStorage.setItem(helpKey,"1");
   document.getElementById("helpPopup").style.display = "none";
 };
 
