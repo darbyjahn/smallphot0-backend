@@ -33,8 +33,8 @@ h1 {
 
   color: black;             
 
-  /* Clean white outline */
-  -webkit-text-stroke: 3px white;
+  /* white outline */
+  -webkit-text-stroke: 2px white;
 
 }
 
@@ -283,7 +283,7 @@ async function createGallery() {
   const bg = document.getElementById("bg").value;
   const text = document.getElementById("text").value;
 
-  if (!title) return alert("Name required");
+  if (!title) return alert("Pick a name.");
 
   const res = await fetch("/api/create", {
     method: "POST",
