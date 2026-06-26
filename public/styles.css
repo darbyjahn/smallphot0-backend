@@ -1,5 +1,12 @@
+@font-face {
+    font-family: "Darby";
+    src: url("/fonts/darby.ttf") format("truetype");
+    font-weight: normal;
+    font-style: normal;
+}
+
 body {
-  font-family: Helvetica, Arial;
+  font-family: "Darby", Helvetica, Arial, sans-serif;
   margin: 0;
   text-align: center;
 }
