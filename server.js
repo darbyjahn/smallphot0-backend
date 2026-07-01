@@ -3,6 +3,7 @@ const fileUpload = require("express-fileupload");
 const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
+const sharp = require("sharp");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -203,8 +204,73 @@ app.post("/api/upload/:user", async (req, res) => {
 
       let storedName = safeBase + ext;
 
-      // Move uploaded file to user folder
-      await f.mv(path.join(dir, storedName));
+     const filePath = path.join(dir, storedName);
+
+// Save file first
+await f.mv(filePath);
+
+// IMAGE OPTIMIZATION 
+if ([".jpg", ".jpeg", ".png"].includes(ext)) {
+  const tempPath = filePath + "_tmp";
+
+  // MAIN IMAGE (optimized original)
+  let pipeline = sharp(filePath)
+    .rotate()
+    .resize({ width: 2000, withoutEnlargement: true })
+    .withMetadata(false);
+
+  if (ext === ".png") {
+    await pipeline
+      .png({ compressionLevel: 9, adaptiveFiltering: true })
+      .toFile(tempPath);
+  } else {
+    await pipeline
+      .jpeg({ quality: 83, progressive: true })
+      .toFile(tempPath);
+  }
+
+  fs.unlinkSync(filePath);
+  fs.renameSync(tempPath, filePath);
+
+  // ======================================================
+  // 🆕 THUMBNAIL GENERATION (NEW NON-INVASIVE FEATURE)
+  // ======================================================
+
+  try {
+    const thumbName = "thumb_" + storedName;
+    const thumbPath = path.join(dir, thumbName);
+
+    await sharp(filePath)
+      .rotate()
+      .resize({
+        width: 500,
+        height: 500,
+        fit: "inside",
+        withoutEnlargement: true
+      })
+      .jpeg({ quality: 70 })
+      .toFile(thumbPath);
+
+  } catch (err) {
+    console.error("THUMBNAIL ERROR:", err);
+  }
+}
+
+// =========================
+// WEBP COPY (OPTIONAL FAST FORMAT)
+// =========================
+
+try {
+  const webpPath = path.join(dir, storedName.replace(/\.(jpg|jpeg|png)$/i, ".webp"));
+
+  await sharp(filePath)
+    .resize({ width: 2000, withoutEnlargement: true })
+    .webp({ quality: 80 })
+    .toFile(webpPath);
+
+} catch (err) {
+  console.error("WebP error:", err);
+}
 
       // Re-encode video if needed
       if ([".mov", ".avi", ".mkv", ".mp4"].includes(ext)) {
@@ -255,6 +321,41 @@ app.post("/api/upload/:user", async (req, res) => {
 app.get("/api/galleries", (req, res) =>
   res.json(load().users)
 );
+
+/* =========================================================
+   ROTATE ITEM
+   ========================================================= */
+
+app.post("/api/rotate/:user/:file", (req, res) => {
+  try {
+    const { user, file } = req.params;
+    const { rotation } = req.body;
+
+    const gp = path.join(GALLERIES_PATH, user, "gallery.json");
+
+    if (!fs.existsSync(gp)) {
+      return res.status(404).json({ error: "Gallery not found" });
+    }
+
+    let g = JSON.parse(fs.readFileSync(gp, "utf8"));
+
+    const item = g.items.find(i => i.stored === file);
+
+    if (!item) {
+      return res.status(404).json({ error: "Image not found" });
+    }
+
+    item.rotation = rotation || 0;
+
+    fs.writeFileSync(gp, JSON.stringify(g, null, 2));
+
+    res.json({ success: true });
+
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Could not save rotation" });
+  }
+});
 
 /* =========================================================
    SET PIN FOR GALLERY
