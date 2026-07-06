@@ -275,59 +275,73 @@ users.forEach(u => {
     <!-- Car body -->
     <rect
         x="18"
-        y="28"
+        y="34"
         width="${width-36}"
-        height="28"
-        rx="12"
+        height="22"
+        rx="5"
         fill="${u.bg}"
         stroke="#222"
-        stroke-width="2"/>
+        stroke-width="2.5"/>
 
     <!-- Roof -->
     <path
         d="
-        M45 28
-        L70 12
-        L${width-70} 12
-        L${width-45} 28 Z"
+        M45 34
+        Q55 12 75 12
+        L${width-75} 12
+        Q${width-55} 12 ${width-45} 34
+        Z"
         fill="${u.bg}"
         stroke="#222"
-        stroke-width="2"/>
+        stroke-width="2.5"/>
 
     <!-- Windows -->
-    <path
-        d="
-        M72 16
-        L${width-72} 16
-        L${width-52} 28
-        L92 28 Z"
+    <rect
+        x="66"
+        y="16"
+        width="${width/2-20}"
+        height="16"
+        rx="8"
+        fill="#bfe8ff"/>
+
+    <rect
+        x="${width/2+4}"
+        y="16"
+        width="${width/2-70}"
+        height="16"
+        rx="8"
         fill="#bfe8ff"/>
 
     <!-- Wheels -->
-    <circle cx="48" cy="60" r="11" fill="#222"/>
-    <circle cx="${width-48}" cy="60" r="11" fill="#222"/>
+    <circle cx="48" cy="56" r="11" fill="#222"/>
+    <circle cx="${width-48}" cy="56" r="11" fill="#222"/>
 
-    <circle cx="48" cy="60" r="5" fill="#ccc"/>
-    <circle cx="${width-48}" cy="60" r="5" fill="#ccc"/>
+    <circle cx="48" cy="56" r="5" fill="#ccc"/>
+    <circle cx="${width-48}" cy="56" r="5" fill="#ccc"/>
 
     <!-- Headlight -->
-    <circle
-        cx="${width-20}"
-        cy="40"
-        r="3"
-        fill="#fff9b0"/>
+  <rect
+      x="${width-23}"
+      y="37"
+      width="6"
+      height="8"
+      rx="1"
+      fill="#ffe46d"/>
+
 
     <!-- Tail light -->
-    <circle
-        cx="20"
-        cy="40"
-        r="3"
-        fill="#ff4c4c"/>
+   <rect
+       x="17"
+       y="37"
+       width="6"
+       height="8"
+       rx="1"
+       fill="#ff5555"/>
 
     <!-- Name -->
     <text
         x="${width/2}"
-        y="46"
+        y="49"
         text-anchor="middle"
         font-family="Darby"
         font-size="15"
