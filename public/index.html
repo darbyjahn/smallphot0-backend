@@ -296,12 +296,13 @@ users.forEach(u => {
         stroke-width="2.5"/>
 
     <!-- Windows -->
-    <rect
-        x="66"
-        y="16"
-        width="${width/2-20}"
-        height="16"
-        rx="8"
+    <path
+        d="
+        M68 31
+        A28 18 0 0 1 ${width-68} 31
+        L${width-68} 31
+        L68 31
+        Z"
         fill="#bfe8ff"/>
 
     <rect
