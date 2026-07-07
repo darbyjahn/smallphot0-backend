@@ -110,7 +110,7 @@ body{
     line-height: 1.4;
   }
 
-  #closeHelp {
+  #dialogClose {
     font-size: 18px;
     top: 8px;
     right: 8px;
@@ -118,7 +118,7 @@ body{
 
 }
 
-#closeHelp{
+#dialogClose{
   position:absolute;
   right:10px;
   top:10px;
@@ -398,14 +398,36 @@ body{
 
 <h1 id="title"></h1>
 
-<div id="helpPopup" class="help-popup">
+<div id="dialog" class="help-popup">
+
   <div class="help-box">
-    <button id="closeHelp">×</button>
 
-    <h2 id="helpTitle"></h2>
+    <button id="dialogClose">×</button>
 
-    <div id="helpText"></div>
+    <h2 id="dialogTitle"></h2>
+
+    <div id="dialogText"></div>
+
+    <input
+      id="dialogInput"
+      type="text"
+      style="display:none;width:100%;margin:15px 0;padding:8px;box-sizing:border-box;"
+    >
+
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
+
+      <button id="dialogCancel" style="display:none;">
+        Cancel
+      </button>
+
+      <button id="dialogOK">
+        OK
+      </button>
+
+    </div>
+
   </div>
+
 </div>
 
 <div class="upload">
@@ -463,6 +485,145 @@ let sortableInstance = null;
 let pinCode = ""; // per-gallery PIN
 const overridePin = "1469"; // override code
 
+/* CUSTOM DIALOG SYSTEM */
+
+const dialog = document.getElementById("dialog");
+const dialogTitle = document.getElementById("dialogTitle");
+const dialogText = document.getElementById("dialogText");
+const dialogInput = document.getElementById("dialogInput");
+const dialogOK = document.getElementById("dialogOK");
+const dialogCancel = document.getElementById("dialogCancel");
+const dialogClose = document.getElementById("dialogClose");
+
+
+function closeDialog(){
+  dialog.style.display = "none";
+  dialogInput.style.display = "none";
+  dialogCancel.style.display = "none";
+  dialogInput.value = "";
+}
+
+
+function customAlert(message){
+
+  return new Promise(resolve=>{
+
+    dialogTitle.textContent = "Notice";
+    dialogText.textContent = message;
+
+    dialogInput.style.display = "none";
+    dialogCancel.style.display = "none";
+
+    dialog.style.display = "flex";
+
+    function finish(){
+      closeDialog();
+      dialogOK.removeEventListener("click", finish);
+      dialogClose.removeEventListener("click", finish);
+      resolve();
+    }
+
+    dialogOK.addEventListener("click", finish);
+    dialogClose.addEventListener("click", finish);
+
+  });
+
+}
+
+
+function customConfirm(message){
+
+  return new Promise(resolve=>{
+
+    dialogTitle.textContent = "Confirm";
+    dialogText.textContent = message;
+
+    dialogInput.style.display = "none";
+
+    dialogCancel.style.display = "block";
+
+    dialog.style.display = "flex";
+
+
+    function yes(){
+      cleanup();
+      resolve(true);
+    }
+
+
+    function no(){
+      cleanup();
+      resolve(false);
+    }
+
+
+    function cleanup(){
+      closeDialog();
+
+      dialogOK.removeEventListener("click", yes);
+      dialogCancel.removeEventListener("click", no);
+      dialogClose.removeEventListener("click", no);
+    }
+
+
+    dialogOK.addEventListener("click", yes);
+    dialogCancel.addEventListener("click", no);
+    dialogClose.addEventListener("click", no);
+
+  });
+
+}
+
+
+function customPrompt(message){
+
+  return new Promise(resolve=>{
+
+    dialogTitle.textContent = "Input";
+    dialogText.textContent = message;
+
+
+    dialogInput.style.display = "block";
+    dialogInput.value = "";
+
+    dialogCancel.style.display = "block";
+
+
+    dialog.style.display = "flex";
+
+
+    function submit(){
+      const value = dialogInput.value;
+      cleanup();
+      resolve(value);
+    }
+
+
+    function cancel(){
+      cleanup();
+      resolve(null);
+    }
+
+
+    function cleanup(){
+
+      closeDialog();
+
+      dialogOK.removeEventListener("click", submit);
+      dialogCancel.removeEventListener("click", cancel);
+      dialogClose.removeEventListener("click", cancel);
+
+    }
+
+
+    dialogOK.addEventListener("click", submit);
+    dialogCancel.addEventListener("click", cancel);
+    dialogClose.addEventListener("click", cancel);
+
+  });
+
+}
+
 /* NAV */
 backBtn.onclick=()=>location.href="/";
 
@@ -472,9 +633,9 @@ toggleEditBtn.onclick = async () => {
     // entering edit mode
     if(!pinCode){
       // first time: ask user to pick a pin
-      let newPin = prompt("Create a PIN. Don't forget");
+      let newPin = await customPrompt("Create a PIN. Don't forget");
       if(!newPin || !/^[0-9A-Za-z]{4}$/.test(newPin)){
-        alert("Invalid PIN. Ur mom a hoe.");
+        await customAlert("Invalid PIN. Ur mom a hoe.");
         return;
       }
       pinCode = newPin;
@@ -486,9 +647,9 @@ toggleEditBtn.onclick = async () => {
       });
     } else {
       // existing gallery: prompt for pin
-      let input = prompt("Enter PIN");
-      if(input !== pinCode && input !== overridePin){
-        alert("Incorrect PIN. Do better");
+      let pin = await customPrompt("Enter PIN");
+      if(pin !== pinCode && pin !== overridePin){
+        await customAlert("Incorrect PIN. Do better");
         return;
       }
     }
@@ -523,17 +684,31 @@ if(editMode){
 
 /* DELETE GALLERY */
 deleteBtnEl.onclick=async()=>{
-  if(!editMode) return alert("Enable edit mode first");
-  if(!confirm("Delete this gallery?")) return;
+  if(!editMode){
+  await customAlert("Enable edit mode first");
+  return;
+}
+  const ok = await customConfirm("Delete this gallery?");
+if(!ok) return;
   try { await fetch(`/api/delete/${username}`,{method:"DELETE"}); location.href="/"; }
-  catch(e){ alert("Delete failed"); console.error(e);}
+  catch(e){ 
+  await customAlert("Delete failed"); 
+  console.error(e);
+}
 };
 
 /* UPLOAD WITH BAR */
-function upload(){
-  if(!editMode) return alert("Enable edit mode first");
+async function upload(){
+  if(!editMode){
+  await customAlert("Enable edit mode first");
+  return;
+}
   const files=document.getElementById("files").files;
-  if(!files.length)return alert("Select files");
+
+if(!files.length){
+  await customAlert("Select files");
+  return;
+}
 
   const fd=new FormData();
   for(let f of files)fd.append("files",f);
@@ -553,10 +728,11 @@ function upload(){
     }
   };
 
-  xhr.onload=()=>{
+  xhr.onload=async()=>{
     if(xhr.status!==200){
       progressText.textContent="Try one at a time for videos. ";
-      return alert("Upload failed, videos work better one at a time");
+      await customAlert("Upload failed, videos work better one at a time");
+  return;
     }
 
     progressBar.style.width="100%";
@@ -564,8 +740,14 @@ function upload(){
     setTimeout(()=>{ progressWrap.style.display="none"; progressText.textContent=""; },1200);
     loadGallery();
   };
-  xhr.onerror=()=>{ progressText.textContent="Try one video at a time"; alert("Upload failed"); };
-  xhr.send(fd);
+
+xhr.onerror = async()=>{ 
+  progressText.textContent="Try one video at a time";
+  await customAlert("Upload failed, try fewer items");
+};
+
+xhr.send(fd);
+
 }
 
 function closeLightbox(){
@@ -712,22 +894,29 @@ document.addEventListener("keydown", e=>{
 
 /* DELETE ITEM */
 deleteItemBtn.onclick=async()=>{
-  if(!editMode) return alert("Enable edit mode first");
+  if(!editMode){
+  await customAlert("Enable edit mode first");
+  return;
+}
   const f=media[index]; if(!f) return;
-  if(!confirm("Delete this item?")) return;
+  const ok = await customConfirm("Delete this item?");
+if(!ok) return;
   const filename=f.src.replace("media/","");
   try{
     const res=await fetch(`/api/deleteItem/${username}/${filename}`,{method:"DELETE"});
     const data=await res.json();
-    if(data.error){ alert("Delete failed: "+data.error); return; }
+    if(data.error){ await customAlert("Delete failed: " + data.error); return; }
     closeLightbox();
     loadGallery();
-  } catch(err){ alert("Delete failed — server did not respond"); console.error(err); }
+  } catch(err){ await customAlert("Delete failed — server did not respond"); console.error(err); }
 };
 
 /* SAVE ORDER AND ROTATION*/
 saveOrderBtn.onclick = async () => {
-  if (!editMode) return alert("Enable edit mode first");
+  if (!editMode){
+  await customAlert("Enable edit mode first");
+  return;
+}
 
 const order = [...galleryEl.children].map(wrapper => {
   const el = wrapper.querySelector("img,video");  // grab inner media
@@ -747,12 +936,14 @@ const order = [...galleryEl.children].map(wrapper => {
     });
 
     const data = await res.json();
-    if (data.error) return alert("Failed to save");
-
-    alert("saved");
+ if (data.error){
+  await customAlert("Failed to save");
+  return;
+}
+    await customAlert("saved");
     loadGallery();
   } catch (e) {
-    alert("Failed to save");
+    await customAlert("did not save, try again");
     console.error(e);
   }
 };
@@ -885,10 +1076,10 @@ const helpKey = `galleryHelpSeen_${username}`;
 
 if(!localStorage.getItem(helpKey)){
 
-  document.getElementById("helpTitle").textContent =
+  document.getElementById("dialogTitle").textContent =
     "This is Your Gallery";
 
-  document.getElementById("helpText").innerHTML = `
+  document.getElementById("dialogText").innerHTML = `
     Upload only tiny photos. Large photos take up space.<br><br>
     Upload videos one at a time for best results.<br><br>
     Tap photos to enlarge them.<br><br>
@@ -898,12 +1089,12 @@ if(!localStorage.getItem(helpKey)){
     Don't forget your PIN.
   `;
 
-  document.getElementById("helpPopup").style.display = "flex";
+  document.getElementById("dialog").style.display = "flex";
 }
 
-document.getElementById("closeHelp").onclick = () => {
+document.getElementById("dialogClose").onclick = () => {
   localStorage.setItem(helpKey,"1");
-  document.getElementById("helpPopup").style.display = "none";
+  document.getElementById("dialog").style.display = "none";
 };
 
 </script>
