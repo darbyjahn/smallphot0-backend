@@ -235,19 +235,198 @@ h1 {
   </div>
 </div>
 
-<div id="helpPopup" class="help-popup">
+<div id="dialog" class="help-popup">
+
   <div class="help-box">
-    <button id="closeHelp">×</button>
 
-    <h2 id="helpTitle"></h2>
+    <button id="dialogClose">×</button>
 
-    <div id="helpText"></div>
+    <h2 id="dialogTitle"></h2>
+
+    <div id="dialogText"></div>
+
+    <input
+      id="dialogInput"
+      type="text"
+      style="display:none;width:100%;margin:15px 0;padding:8px;box-sizing:border-box;"
+    >
+
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
+
+      <button id="dialogCancel" style="display:none;">
+        Cancel
+      </button>
+
+      <button id="dialogOK">
+        OK
+      </button>
+
+    </div>
+
   </div>
+
 </div>
 
 <script>
 const listEl = document.getElementById("galleryList");
 const modal = document.getElementById("modal");
+/* ---------- CUSTOM DIALOG SYSTEM ---------- */
+
+const dialog = document.getElementById("dialog");
+const dialogTitle = document.getElementById("dialogTitle");
+const dialogText = document.getElementById("dialogText");
+const dialogInput = document.getElementById("dialogInput");
+const dialogOK = document.getElementById("dialogOK");
+const dialogCancel = document.getElementById("dialogCancel");
+const dialogClose = document.getElementById("dialogClose");
+
+
+function closeDialog(){
+
+  dialog.style.display = "none";
+
+  dialogInput.style.display = "none";
+  dialogCancel.style.display = "none";
+
+  dialogInput.value = "";
+
+}
+
+
+function customAlert(message){
+
+  return new Promise(resolve=>{
+
+    dialogTitle.textContent = "Notice";
+    dialogText.textContent = message;
+
+    dialogInput.style.display = "none";
+    dialogCancel.style.display = "none";
+
+    dialog.style.display = "flex";
+
+
+    function close(){
+
+      closeDialog();
+
+      dialogOK.removeEventListener("click", close);
+      dialogClose.removeEventListener("click", close);
+
+      resolve();
+
+    }
+
+
+    dialogOK.addEventListener("click", close);
+    dialogClose.addEventListener("click", close);
+
+  });
+
+}
+
+
+function customConfirm(message){
+
+  return new Promise(resolve=>{
+
+    dialogTitle.textContent = "Confirm";
+    dialogText.textContent = message;
+
+    dialogInput.style.display = "none";
+    dialogCancel.style.display = "block";
+
+    dialog.style.display = "flex";
+
+
+    function yes(){
+
+      cleanup();
+      resolve(true);
+
+    }
+
+
+    function no(){
+
+      cleanup();
+      resolve(false);
+
+    }
+
+
+    function cleanup(){
+
+      closeDialog();
+
+      dialogOK.removeEventListener("click", yes);
+      dialogCancel.removeEventListener("click", no);
+      dialogClose.removeEventListener("click", no);
+
+    }
+
+
+    dialogOK.addEventListener("click", yes);
+    dialogCancel.addEventListener("click", no);
+    dialogClose.addEventListener("click", no);
+
+
+  });
+
+}
+
+
+function customPrompt(message){
+
+  return new Promise(resolve=>{
+
+    dialogTitle.textContent = "Input";
+    dialogText.textContent = message;
+
+    dialogInput.style.display = "block";
+    dialogCancel.style.display = "block";
+
+    dialog.style.display = "flex";
+
+
+    function submit(){
+
+      const value = dialogInput.value;
+
+      cleanup();
+
+      resolve(value);
+
+    }
+
+
+    function cancel(){
+
+      cleanup();
+
+      resolve(null);
+
+    }
+
+
+    function cleanup(){
+
+      closeDialog();
+
+      dialogOK.removeEventListener("click", submit);
+      dialogCancel.removeEventListener("click", cancel);
+      dialogClose.removeEventListener("click", cancel);
+
+    }
+
+
+    dialogOK.addEventListener("click", submit);
+    dialogCancel.addEventListener("click", cancel);
+    dialogClose.addEventListener("click", cancel);
+
+  });
+
+}
 
 /* ---------- LOAD GALLERIES ---------- */
 async function loadGalleries() {
@@ -363,7 +542,10 @@ async function createGallery() {
   const bg = document.getElementById("bg").value;
   const text = document.getElementById("text").value;
 
-  if (!title) return alert("Pick a name.");
+ if (!title){
+  await customAlert("Pick a name.");
+  return;
+}
 
   const res = await fetch("/api/create", {
     method: "POST",
@@ -372,7 +554,10 @@ async function createGallery() {
   });
 
   const data = await res.json();
-  if (data.error) return alert(data.error);
+  if (data.error){
+  await customAlert(data.error);
+  return;
+}
 
   modal.style.display = "none";
   loadGalleries();
@@ -380,24 +565,28 @@ async function createGallery() {
 
 loadGalleries();
 
-const helpKey = `galleryHelpSeen_${username}`;
+const helpKey = "galleryHomeHelpSeen";
 
 if(!localStorage.getItem(helpKey)){
 
-  document.getElementById("helpTitle").textContent =
+  document.getElementById("dialogTitle").textContent =
     "This is the Small Photo Gallery";
 
-  document.getElementById("helpText").innerHTML = `
-    Create your own gallery and upload photos or videos from your tiny camera.<br><br> 
-    Each gallery has a pin share it or don't.
+  document.getElementById("dialogText").innerHTML = `
+    Create your own gallery and upload photos or videos from your tiny camera.<br><br>
+    Each gallery has a pin — share it or don't.
   `;
 
-  document.getElementById("helpPopup").style.display = "flex";
+  document.getElementById("dialog").style.display = "flex";
 }
 
-document.getElementById("closeHelp").onclick = () => {
+
+document.getElementById("dialogClose").onclick = () => {
+
   localStorage.setItem(helpKey,"1");
-  document.getElementById("helpPopup").style.display = "none";
+
+  document.getElementById("dialog").style.display = "none";
+
 };
 
 </script>
