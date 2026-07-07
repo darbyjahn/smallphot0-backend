@@ -48,14 +48,17 @@ body{
 .header-column{
   display:flex;
   flex-direction:column;
-  align-items: flex-end;
-  gap: 8px;
-  width: 170px;
+  align-items:flex-end;
+  gap:8px;
 }
 
 .header-column button{
-  width: 100%;
-  box-sizing: border-box;
+  width:auto;
+  box-sizing:border-box;
+}
+
+#deleteBtn{
+  width:170px;
 }
 
 .help-popup{
@@ -575,7 +578,7 @@ function closeDialog(){
 
   dialogInput.style.display="none";
 
-  dialogOK.style.display="block";
+  dialogOK.style.display="none";
   dialogCancel.style.display="none";
 
   dialogInput.value="";
@@ -601,9 +604,10 @@ function customAlert(message){
       resolve();
     }
 
-    dialogOK.style.display="none";
-    dialogClose.addEventListener("click", finish);
+   dialogOK.style.display="block";
 
+dialogOK.addEventListener("click", finish);
+dialogClose.addEventListener("click", finish);
   });
 
 }
@@ -662,28 +666,32 @@ function customPrompt(message){
     dialogTitle.textContent = "";
     dialogText.textContent = message;
 
-
     dialogInput.style.display = "block";
     dialogInput.value = "";
 
-    dialogCancel.style.display = "block";
-
-
     dialog.style.display = "flex";
-    dialogOK.style.display="none";
-    dialogCancel.style.display="none";
+
+    dialogOK.style.display = "block";
+    dialogCancel.style.display = "none";
 
 
     function submit(){
+
       const value = dialogInput.value;
+
       cleanup();
+
       resolve(value);
+
     }
 
 
     function cancel(){
+
       cleanup();
+
       resolve(null);
+
     }
 
 
@@ -692,15 +700,28 @@ function customPrompt(message){
       closeDialog();
 
       dialogOK.removeEventListener("click", submit);
-      dialogCancel.removeEventListener("click", cancel);
       dialogClose.removeEventListener("click", cancel);
+      dialogInput.removeEventListener("keydown", enterSubmit);
 
     }
 
 
+    function enterSubmit(e){
+      if(e.key === "Enter"){
+        submit();
+      }
+    }
+
+
     dialogOK.addEventListener("click", submit);
-    dialogCancel.addEventListener("click", cancel);
     dialogClose.addEventListener("click", cancel);
+    dialogInput.addEventListener("keydown", enterSubmit);
+
+
+    // automatically focus PIN box
+    setTimeout(()=>{
+      dialogInput.focus();
+    },100);
 
   });
 
