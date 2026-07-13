@@ -116,21 +116,6 @@ body{
 }
 
 
-#dialogClose{
-  position:absolute;
-
-  right:8px;
-  top:5px;
-
-  border:none;
-  background:none;
-
-  font-size:24px;
-
-  cursor:pointer;
-}
-
-
 #dialogOK,
 #dialogCancel{
 
@@ -192,17 +177,6 @@ body{
     right: 8px;
   }
 
-}
-
-#dialogClose{
-  position:absolute;
-  right:10px;
-  top:10px;
-
-  border:none;
-  background:none;
-  font-size:22px;
-  cursor:pointer;
 }
 
 /* TITLE */
@@ -478,7 +452,6 @@ body{
 
   <div class="help-box">
 
-    <button id="dialogClose">×</button>
 
     <h2 id="dialogTitle"></h2>
 
@@ -569,8 +542,12 @@ const dialogText = document.getElementById("dialogText");
 const dialogInput = document.getElementById("dialogInput");
 const dialogOK = document.getElementById("dialogOK");
 const dialogCancel = document.getElementById("dialogCancel");
-const dialogClose = document.getElementById("dialogClose");
 
+dialog.addEventListener("click", (e) => {
+  if (e.target === dialog) {
+    closeDialog();
+  }
+});
 
 function closeDialog(){
 
